@@ -56,6 +56,18 @@ impl Cpu {
                         );
                         self.write_reg(rd, rs1_val.wrapping_add(imm as u32));
                     }
+                    0x1 => {
+                        let shamt = (imm as u32) & 0x1F;
+                        debug_log!(
+                            "SLLI rd={}, rs1={}, rs1_val={}, imm={}, shamt={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            imm,
+                            shamt
+                        );
+                        self.write_reg(rd, rs1_val << shamt);
+                    }
                     0x4 => {
                         debug_log!(
                             "XORI rd={}, rs1={}, rs1_val={}, imm={}",
@@ -65,6 +77,37 @@ impl Cpu {
                             imm
                         );
                         self.write_reg(rd, rs1_val ^ (imm as u32));
+                    }
+                    0x5 => {
+                        let funct7 = ((imm as u32) >> 5) & 0x7F;
+                        let shamt = (imm as u32) & 0x1F;
+                        match funct7 {
+                            0x00 => {
+                                debug_log!(
+                                    "SRLI rd={}, rs1={}, rs1_val={}, imm={}, shamt={}, funct7={}",
+                                    rd,
+                                    rs1,
+                                    rs1_val,
+                                    imm,
+                                    shamt,
+                                    funct7
+                                );
+                                self.write_reg(rd, rs1_val >> shamt);
+                            }
+                            0x20 => {
+                                debug_log!(
+                                    "SRAI rd={}, rs1={}, rs1_val={}, imm={}, shamt={}, funct7={}",
+                                    rd,
+                                    rs1,
+                                    rs1_val,
+                                    imm,
+                                    shamt,
+                                    funct7
+                                );
+                                self.write_reg(rd, ((rs1_val as i32) >> shamt) as u32);
+                            }
+                            _ => panic!("Not Implemented"),
+                        }
                     }
                     0x6 => {
                         debug_log!(
@@ -122,6 +165,19 @@ impl Cpu {
                         );
                         self.write_reg(rd, rs1_val.wrapping_sub(rs2_val));
                     }
+                    (0x1, 0x0) => {
+                        let shamt = rs2_val & 0x1F;
+                        debug_log!(
+                            "SLL rd={}, rs1={}, rs1_val={}, rs2={}, rs2_val={}, shamt={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            rs2,
+                            rs2_val,
+                            shamt
+                        );
+                        self.write_reg(rd, rs1_val << shamt);
+                    }
                     (0x4, 0x0) => {
                         debug_log!(
                             "XOR rd={}, rs1={}, rs1_val={}, rs2={}, rs2_val={}",
@@ -133,7 +189,32 @@ impl Cpu {
                         );
                         self.write_reg(rd, rs1_val ^ rs2_val);
                     }
-
+                    (0x5, 0x0) => {
+                        let shamt = rs2_val & 0x1F;
+                        debug_log!(
+                            "SRL rd={}, rs1={}, rs1_val={}, rs2={}, rs2_val={}, shamt={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            rs2,
+                            rs2_val,
+                            shamt
+                        );
+                        self.write_reg(rd, rs1_val >> rs2_val);
+                    }
+                    (0x5, 0x20) => {
+                        let shamt = rs2_val & 0x1F;
+                        debug_log!(
+                            "SRA rd={}, rs1={}, rs1_val={}, rs2={}, rs2_val={}, shamt={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            rs2,
+                            rs2_val,
+                            shamt
+                        );
+                        self.write_reg(rd, ((rs1_val as i32) >> shamt) as u32);
+                    }
                     (0x6, 0x0) => {
                         debug_log!(
                             "OR rd={}, rs1={}, rs1_val={}, rs2={}, rs2_val={}",
@@ -336,5 +417,75 @@ mod tests {
         // imm = -1 → 부호확장 → 0xFFFFFFFF
         // 0xFF ^ 0xFFFFFFFF = 0xFFFFFF00
         assert_eq!(cpu.read_reg(2), 0xFFFFFF00);
+    }
+    // === R-type 시프트 ===
+    #[test]
+    fn test_sll() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 1);
+        cpu.write_reg(2, 4);
+        // SLL x3, x1, x2 → 0x002091B3
+        // funct7=0000000, rs2=00010, rs1=00001, funct3=001, rd=00011, op=0110011
+        cpu.memory.write32(0x80000000, 0x002091B3);
+        cpu.step();
+        assert_eq!(cpu.read_reg(3), 16); // 1 << 4 = 16
+    }
+
+    #[test]
+    fn test_srl() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0x80000000);
+        cpu.write_reg(2, 4);
+        // SRL x3, x1, x2 → 0x0020D1B3
+        // funct7=0000000, rs2=00010, rs1=00001, funct3=101, rd=00011, op=0110011
+        cpu.memory.write32(0x80000000, 0x0020D1B3);
+        cpu.step();
+        assert_eq!(cpu.read_reg(3), 0x08000000); // 논리 시프트, 0 채움
+    }
+
+    #[test]
+    fn test_sra() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0x80000000); // 음수 (부호 비트 1)
+        cpu.write_reg(2, 4);
+        // SRA x3, x1, x2 → 0x4020D1B3
+        // funct7=0100000, rs2=00010, rs1=00001, funct3=101, rd=00011, op=0110011
+        cpu.memory.write32(0x80000000, 0x4020D1B3);
+        cpu.step();
+        assert_eq!(cpu.read_reg(3), 0xF8000000); // 산술 시프트, 부호 채움
+    }
+
+    // === I-type 시프트 ===
+    #[test]
+    fn test_slli() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 1);
+        // SLLI x2, x1, 4 → 0x00409113
+        // imm=0000000_00100, rs1=00001, funct3=001, rd=00010, op=0010011
+        cpu.memory.write32(0x80000000, 0x00409113);
+        cpu.step();
+        assert_eq!(cpu.read_reg(2), 16); // 1 << 4 = 16
+    }
+
+    #[test]
+    fn test_srli() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0x80000000);
+        // SRLI x2, x1, 4 → 0x0040D113
+        // imm=0000000_00100, rs1=00001, funct3=101, rd=00010, op=0010011
+        cpu.memory.write32(0x80000000, 0x0040D113);
+        cpu.step();
+        assert_eq!(cpu.read_reg(2), 0x08000000); // 논리 시프트
+    }
+
+    #[test]
+    fn test_srai() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0x80000000);
+        // SRAI x2, x1, 4 → 0x4040D113
+        // imm=0100000_00100, rs1=00001, funct3=101, rd=00010, op=0010011
+        cpu.memory.write32(0x80000000, 0x4040D113);
+        cpu.step();
+        assert_eq!(cpu.read_reg(2), 0xF8000000); // 산술 시프트
     }
 }
