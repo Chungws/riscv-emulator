@@ -268,13 +268,13 @@ fn test_andi() {
 ```
 
 ### 체크리스트
-- [ ] AND (funct3=111, funct7=0)
-- [ ] OR (funct3=110, funct7=0)
-- [ ] XOR (funct3=100, funct7=0)
-- [ ] ANDI (opcode=0010011, funct3=111)
-- [ ] ORI (opcode=0010011, funct3=110)
-- [ ] XORI (opcode=0010011, funct3=100)
-- [ ] 테스트 통과
+- [x] AND (funct3=111, funct7=0)
+- [x] OR (funct3=110, funct7=0)
+- [x] XOR (funct3=100, funct7=0)
+- [x] ANDI (opcode=0010011, funct3=111)
+- [x] ORI (opcode=0010011, funct3=110)
+- [x] XORI (opcode=0010011, funct3=100)
+- [x] 테스트 통과
 
 ---
 
