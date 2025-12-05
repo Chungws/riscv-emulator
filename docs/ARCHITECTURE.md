@@ -94,6 +94,75 @@ J-type: 점프
 | 0010111 | U | auipc |
 | 1110011 | I | ecall, ebreak |
 
+### 명령어 세부 구분 (funct3, funct7)
+
+같은 opcode 내에서 funct3, funct7으로 명령어를 구분합니다.
+
+**R-type (opcode = 0110011)**
+
+| funct3 | funct7 | 명령어 | 동작 |
+|--------|--------|--------|------|
+| 000 | 0000000 | ADD | rd = rs1 + rs2 |
+| 000 | 0100000 | SUB | rd = rs1 - rs2 |
+| 001 | 0000000 | SLL | rd = rs1 << rs2 |
+| 010 | 0000000 | SLT | rd = (rs1 < rs2) ? 1 : 0 (signed) |
+| 011 | 0000000 | SLTU | rd = (rs1 < rs2) ? 1 : 0 (unsigned) |
+| 100 | 0000000 | XOR | rd = rs1 ^ rs2 |
+| 101 | 0000000 | SRL | rd = rs1 >> rs2 (logical) |
+| 101 | 0100000 | SRA | rd = rs1 >> rs2 (arithmetic) |
+| 110 | 0000000 | OR | rd = rs1 \| rs2 |
+| 111 | 0000000 | AND | rd = rs1 & rs2 |
+
+**I-type 산술 (opcode = 0010011)**
+
+| funct3 | imm[11:5] | 명령어 | 동작 |
+|--------|-----------|--------|------|
+| 000 | - | ADDI | rd = rs1 + imm |
+| 010 | - | SLTI | rd = (rs1 < imm) ? 1 : 0 (signed) |
+| 011 | - | SLTIU | rd = (rs1 < imm) ? 1 : 0 (unsigned) |
+| 100 | - | XORI | rd = rs1 ^ imm |
+| 110 | - | ORI | rd = rs1 \| imm |
+| 111 | - | ANDI | rd = rs1 & imm |
+| 001 | 0000000 | SLLI | rd = rs1 << imm[4:0] |
+| 101 | 0000000 | SRLI | rd = rs1 >> imm[4:0] (logical) |
+| 101 | 0100000 | SRAI | rd = rs1 >> imm[4:0] (arithmetic) |
+
+**I-type 로드 (opcode = 0000011)**
+
+| funct3 | 명령어 | 동작 |
+|--------|--------|------|
+| 000 | LB | rd = sign_ext(mem[rs1+imm][7:0]) |
+| 001 | LH | rd = sign_ext(mem[rs1+imm][15:0]) |
+| 010 | LW | rd = mem[rs1+imm][31:0] |
+| 100 | LBU | rd = zero_ext(mem[rs1+imm][7:0]) |
+| 101 | LHU | rd = zero_ext(mem[rs1+imm][15:0]) |
+
+**S-type 스토어 (opcode = 0100011)**
+
+| funct3 | 명령어 | 동작 |
+|--------|--------|------|
+| 000 | SB | mem[rs1+imm][7:0] = rs2[7:0] |
+| 001 | SH | mem[rs1+imm][15:0] = rs2[15:0] |
+| 010 | SW | mem[rs1+imm][31:0] = rs2 |
+
+**B-type 분기 (opcode = 1100011)**
+
+| funct3 | 명령어 | 동작 |
+|--------|--------|------|
+| 000 | BEQ | if (rs1 == rs2) PC += imm |
+| 001 | BNE | if (rs1 != rs2) PC += imm |
+| 100 | BLT | if (rs1 < rs2) PC += imm (signed) |
+| 101 | BGE | if (rs1 >= rs2) PC += imm (signed) |
+| 110 | BLTU | if (rs1 < rs2) PC += imm (unsigned) |
+| 111 | BGEU | if (rs1 >= rs2) PC += imm (unsigned) |
+
+**시스템 (opcode = 1110011)**
+
+| imm[11:0] | 명령어 |
+|-----------|--------|
+| 0 | ECALL |
+| 1 | EBREAK |
+
 ---
 
 ## RV32I 명령어 목록 (37개)
