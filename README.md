@@ -30,7 +30,7 @@ cargo test
 
 - [x] Step 1: CPU 구조체 (레지스터 + PC)
 - [x] Step 2: 메모리 시스템
-- [ ] Step 3: Fetch
+- [x] Step 3: Fetch
 - [ ] Step 4: Decode
 - [ ] Step 5: 산술 연산 (ADD, SUB, ADDI)
 - [ ] Step 6: 논리 연산 (AND, OR, XOR...)

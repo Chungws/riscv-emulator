@@ -118,9 +118,9 @@ fn test_fetch() {
 ```
 
 ### 체크리스트
-- [ ] CPU에 Memory 필드 추가
-- [ ] `Cpu::fetch()` 구현
-- [ ] 테스트 통과
+- [x] CPU에 Memory 필드 추가
+- [x] `Cpu::fetch()` 구현
+- [x] 테스트 통과
 
 ---
 
