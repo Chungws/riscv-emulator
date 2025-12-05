@@ -307,13 +307,13 @@ fn test_srai() {
 ```
 
 ### 체크리스트
-- [ ] SLL (funct3=001, funct7=0)
-- [ ] SRL (funct3=101, funct7=0000000)
-- [ ] SRA (funct3=101, funct7=0100000)
-- [ ] SLLI (funct3=001, imm[11:5]=0)
-- [ ] SRLI (funct3=101, imm[11:5]=0)
-- [ ] SRAI (funct3=101, imm[11:5]=0100000)
-- [ ] 테스트 통과
+- [x] SLL (funct3=001, funct7=0)
+- [x] SRL (funct3=101, funct7=0000000)
+- [x] SRA (funct3=101, funct7=0100000)
+- [x] SLLI (funct3=001, imm[11:5]=0)
+- [x] SRLI (funct3=101, imm[11:5]=0)
+- [x] SRAI (funct3=101, imm[11:5]=0100000)
+- [x] 테스트 통과
 
 ---
 

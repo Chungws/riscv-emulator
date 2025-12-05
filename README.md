@@ -34,7 +34,7 @@ cargo test
 - [x] Step 4: Decode
 - [x] Step 5: 산술 연산 (ADD, SUB, ADDI)
 - [x] Step 6: 논리 연산 (AND, OR, XOR...)
-- [ ] Step 7: 시프트 연산 (SLL, SRL, SRA...)
+- [x] Step 7: 시프트 연산 (SLL, SRL, SRA...)
 - [ ] Step 8: 비교 연산 (SLT, SLTU...)
 - [ ] Step 9: 로드/스토어 (LW, SW...)
 - [ ] Step 10: 분기 (BEQ, BNE...)
