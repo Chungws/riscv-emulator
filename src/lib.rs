@@ -1,4 +1,5 @@
 pub mod cpu;
+pub mod decoder;
 pub mod memory;
 
 pub use cpu::Cpu;
