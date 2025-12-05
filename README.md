@@ -29,7 +29,7 @@ cargo test
 ## 구현 현황
 
 - [x] Step 1: CPU 구조체 (레지스터 + PC)
-- [ ] Step 2: 메모리 시스템
+- [x] Step 2: 메모리 시스템
 - [ ] Step 3: Fetch
 - [ ] Step 4: Decode
 - [ ] Step 5: 산술 연산 (ADD, SUB, ADDI)

@@ -86,11 +86,11 @@ fn test_memory_little_endian() {
 ```
 
 ### 체크리스트
-- [ ] `src/memory.rs` - Memory 구조체
-- [ ] `read8`, `read16`, `read32` 구현
-- [ ] `write8`, `write16`, `write32` 구현
-- [ ] 리틀 엔디안 처리
-- [ ] 테스트 통과
+- [x] `src/memory.rs` - Memory 구조체
+- [x] `read8`, `read16`, `read32` 구현
+- [x] `write8`, `write16`, `write32` 구현
+- [x] 리틀 엔디안 처리
+- [x] 테스트 통과
 
 ---
 
