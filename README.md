@@ -32,7 +32,7 @@ cargo test
 - [x] Step 2: 메모리 시스템
 - [x] Step 3: Fetch
 - [x] Step 4: Decode
-- [ ] Step 5: 산술 연산 (ADD, SUB, ADDI)
+- [x] Step 5: 산술 연산 (ADD, SUB, ADDI)
 - [ ] Step 6: 논리 연산 (AND, OR, XOR...)
 - [ ] Step 7: 시프트 연산 (SLL, SRL, SRA...)
 - [ ] Step 8: 비교 연산 (SLT, SLTU...)

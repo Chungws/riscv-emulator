@@ -228,11 +228,11 @@ fn test_sub() {
 ```
 
 ### 체크리스트
-- [ ] `Cpu::step()` 또는 `Cpu::execute()` 구현
-- [ ] ADDI 구현 (opcode=0010011, funct3=000)
-- [ ] ADD 구현 (opcode=0110011, funct3=000, funct7=0000000)
-- [ ] SUB 구현 (opcode=0110011, funct3=000, funct7=0100000)
-- [ ] 테스트 통과
+- [x] `Cpu::step()` 또는 `Cpu::execute()` 구현
+- [x] ADDI 구현 (opcode=0010011, funct3=000)
+- [x] ADD 구현 (opcode=0110011, funct3=000, funct7=0000000)
+- [x] SUB 구현 (opcode=0110011, funct3=000, funct7=0100000)
+- [x] 테스트 통과
 
 ---
 
