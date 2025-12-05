@@ -2,20 +2,20 @@ pub fn opcode(inst: u32) -> u32 {
     inst & 0x7F
 }
 
-pub fn rd(inst: u32) -> u32 {
-    (inst >> 7) & 0x1F
+pub fn rd(inst: u32) -> usize {
+    ((inst >> 7) & 0x1F) as usize
 }
 
 pub fn funct3(inst: u32) -> u32 {
     (inst >> 12) & 0x7
 }
 
-pub fn rs1(inst: u32) -> u32 {
-    (inst >> 15) & 0x1F
+pub fn rs1(inst: u32) -> usize {
+    ((inst >> 15) & 0x1F) as usize
 }
 
-pub fn rs2(inst: u32) -> u32 {
-    (inst >> 20) & 0x1F
+pub fn rs2(inst: u32) -> usize {
+    ((inst >> 20) & 0x1F) as usize
 }
 
 pub fn funct7(inst: u32) -> u32 {
