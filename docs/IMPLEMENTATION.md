@@ -175,11 +175,11 @@ fn test_decode_b_type_imm() {
 ```
 
 ### 체크리스트
-- [ ] `src/decoder.rs` 생성
-- [ ] `opcode()`, `rd()`, `rs1()`, `rs2()`, `funct3()`, `funct7()` 구현
-- [ ] `imm_i()`, `imm_s()`, `imm_b()`, `imm_u()`, `imm_j()` 구현
-- [ ] 부호 확장 (sign extension) 올바르게 처리
-- [ ] 테스트 통과
+- [x] `src/decoder.rs` 생성
+- [x] `opcode()`, `rd()`, `rs1()`, `rs2()`, `funct3()`, `funct7()` 구현
+- [x] `imm_i()`, `imm_s()`, `imm_b()`, `imm_u()`, `imm_j()` 구현
+- [x] 부호 확장 (sign extension) 올바르게 처리
+- [x] 테스트 통과
 
 ---
 
