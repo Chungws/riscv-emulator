@@ -56,6 +56,36 @@ impl Cpu {
                         );
                         self.write_reg(rd, rs1_val.wrapping_add(imm as u32));
                     }
+                    0x4 => {
+                        debug_log!(
+                            "XORI rd={}, rs1={}, rs1_val={}, imm={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            imm
+                        );
+                        self.write_reg(rd, rs1_val ^ (imm as u32));
+                    }
+                    0x6 => {
+                        debug_log!(
+                            "ORI rd={}, rs1={}, rs1_val={}, imm={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            imm
+                        );
+                        self.write_reg(rd, rs1_val | (imm as u32));
+                    }
+                    0x7 => {
+                        debug_log!(
+                            "ANDI rd={}, rs1={}, rs1_val={}, imm={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            imm
+                        );
+                        self.write_reg(rd, rs1_val & (imm as u32));
+                    }
                     _ => debug_log!("Not Implemented"),
                 }
             }
@@ -92,6 +122,41 @@ impl Cpu {
                         );
                         self.write_reg(rd, rs1_val.wrapping_sub(rs2_val));
                     }
+                    (0x4, 0x0) => {
+                        debug_log!(
+                            "XOR rd={}, rs1={}, rs1_val={}, rs2={}, rs2_val={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            rs2,
+                            rs2_val
+                        );
+                        self.write_reg(rd, rs1_val ^ rs2_val);
+                    }
+
+                    (0x6, 0x0) => {
+                        debug_log!(
+                            "OR rd={}, rs1={}, rs1_val={}, rs2={}, rs2_val={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            rs2,
+                            rs2_val
+                        );
+                        self.write_reg(rd, rs1_val | rs2_val);
+                    }
+                    (0x7, 0x0) => {
+                        debug_log!(
+                            "AND rd={}, rs1={}, rs1_val={}, rs2={}, rs2_val={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            rs2,
+                            rs2_val
+                        );
+                        self.write_reg(rd, rs1_val & rs2_val);
+                    }
+
                     _ => debug_log!("Not Implemented"),
                 }
             }
@@ -171,5 +236,105 @@ mod tests {
         cpu.memory.write32(0x80000000, 0x402081B3);
         cpu.step();
         assert_eq!(cpu.read_reg(3), 70);
+    }
+
+    // === R-type 논리 연산 ===
+    #[test]
+    fn test_and() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0b1100);
+        cpu.write_reg(2, 0b1010);
+        // AND x3, x1, x2 → 0x0020F1B3
+        cpu.memory.write32(0x80000000, 0x0020F1B3);
+        cpu.step();
+        assert_eq!(cpu.read_reg(3), 0b1000);
+    }
+
+    #[test]
+    fn test_or() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0b1100);
+        cpu.write_reg(2, 0b1010);
+        // OR x3, x1, x2 → 0x0020E1B3
+        cpu.memory.write32(0x80000000, 0x0020E1B3);
+        cpu.step();
+        assert_eq!(cpu.read_reg(3), 0b1110);
+    }
+
+    #[test]
+    fn test_or_with_zero() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0x12345678);
+        cpu.write_reg(2, 0);
+        // OR x3, x1, x2
+        cpu.memory.write32(0x80000000, 0x0020E1B3);
+        cpu.step();
+        assert_eq!(cpu.read_reg(3), 0x12345678); // a | 0 = a
+    }
+
+    #[test]
+    fn test_xor() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0b1100);
+        cpu.write_reg(2, 0b1010);
+        // XOR x3, x1, x2 → 0x0020C1B3
+        cpu.memory.write32(0x80000000, 0x0020C1B3);
+        cpu.step();
+        assert_eq!(cpu.read_reg(3), 0b0110);
+    }
+
+    // === I-type 논리 연산 ===
+    #[test]
+    fn test_andi() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0xFF);
+        // ANDI x2, x1, 0x0F → 0x00F0F113
+        cpu.memory.write32(0x80000000, 0x00F0F113);
+        cpu.step();
+        assert_eq!(cpu.read_reg(2), 0x0F);
+    }
+
+    #[test]
+    fn test_andi_sign_extended() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0xFFFFFFFF);
+        // ANDI x2, x1, -1 (0xFFF) → 0xFFF0F113
+        cpu.memory.write32(0x80000000, 0xFFF0F113);
+        cpu.step();
+        // imm = -1 → 0xFFFFFFFF
+        // 0xFFFFFFFF & 0xFFFFFFFF = 0xFFFFFFFF
+        assert_eq!(cpu.read_reg(2), 0xFFFFFFFF);
+    }
+
+    #[test]
+    fn test_ori() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0xF0);
+        // ORI x2, x1, 0x0F → 0x00F0E113
+        cpu.memory.write32(0x80000000, 0x00F0E113);
+        cpu.step();
+        assert_eq!(cpu.read_reg(2), 0xFF);
+    }
+
+    #[test]
+    fn test_xori() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0xFF);
+        // XORI x2, x1, 0xFF → 0x0FF0C113
+        cpu.memory.write32(0x80000000, 0x0FF0C113);
+        cpu.step();
+        assert_eq!(cpu.read_reg(2), 0); // 0xFF ^ 0xFF = 0
+    }
+
+    #[test]
+    fn test_xori_sign_extended() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0xFF);
+        // XORI x2, x1, -1 (0xFFF) → 0xFFF0C113
+        cpu.memory.write32(0x80000000, 0xFFF0C113);
+        cpu.step();
+        // imm = -1 → 부호확장 → 0xFFFFFFFF
+        // 0xFF ^ 0xFFFFFFFF = 0xFFFFFF00
+        assert_eq!(cpu.read_reg(2), 0xFFFFFF00);
     }
 }
