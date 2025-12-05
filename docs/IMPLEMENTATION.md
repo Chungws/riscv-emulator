@@ -39,11 +39,11 @@ fn test_x0_always_zero() {
 ```
 
 ### 체크리스트
-- [ ] `Cargo.toml` 생성
-- [ ] `src/cpu.rs` - Cpu 구조체
-- [ ] `Cpu::new()` 생성자
-- [ ] `Cpu::read_reg()` / `Cpu::write_reg()` 메서드
-- [ ] 테스트 통과
+- [x] `Cargo.toml` 생성
+- [x] `src/cpu.rs` - Cpu 구조체
+- [x] `Cpu::new()` 생성자
+- [x] `Cpu::read_reg()` / `Cpu::write_reg()` 메서드
+- [x] 테스트 통과
 
 ---
 
