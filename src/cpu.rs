@@ -1,8 +1,9 @@
-use crate::DRAM_BASE;
+use crate::{DRAM_BASE, memory::Memory};
 
 pub struct Cpu {
     pub regs: [u32; 32],
     pub pc: u32,
+    pub memory: Memory,
 }
 
 impl Cpu {
@@ -10,10 +11,11 @@ impl Cpu {
         Self {
             regs: [0; 32],
             pc: DRAM_BASE,
+            memory: Memory::new(),
         }
     }
 
-    pub fn read_arg(&self, index: usize) -> u32 {
+    pub fn read_reg(&self, index: usize) -> u32 {
         self.regs[index]
     }
 
@@ -21,6 +23,10 @@ impl Cpu {
         if index != 0 {
             self.regs[index] = value;
         }
+    }
+
+    pub fn fetch(&self) -> u32 {
+        self.memory.read32(self.pc)
     }
 }
 
@@ -41,6 +47,17 @@ mod tests {
     fn test_x0_always_zero() {
         let mut cpu = Cpu::new();
         cpu.write_reg(0, 100);
-        assert_eq!(cpu.read_arg(0), 0);
+        assert_eq!(cpu.read_reg(0), 0);
+    }
+
+    #[test]
+    fn test_fetch() {
+        let mut cpu = Cpu::new();
+        // ADDI x1, x0, 42를 메모리에 로드
+        // addi x1, x0, 42 → 0x02A00093
+        cpu.memory.write32(0x80000000, 0x02A00093);
+
+        let instruction = cpu.fetch();
+        assert_eq!(instruction, 0x02A00093);
     }
 }
