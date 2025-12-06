@@ -4,6 +4,7 @@ const OP_IMM: u32 = 0x13;
 const OP: u32 = 0x33;
 const LOAD: u32 = 0x03;
 const STORE: u32 = 0x23;
+const BRANCH: u32 = 0x63;
 
 pub struct Cpu {
     pub regs: [u32; 32],
@@ -420,6 +421,96 @@ impl Cpu {
                     _ => debug_log!("Not Implemented"),
                 }
             }
+            BRANCH => {
+                debug_log!("BRANCH");
+                let funct3 = decoder::funct3(inst);
+                let rs1 = decoder::rs1(inst);
+                let rs1_val = self.read_reg(rs1);
+                let rs2 = decoder::rs2(inst);
+                let rs2_val = self.read_reg(rs2);
+                let imm = decoder::imm_b(inst);
+
+                let taken = match funct3 {
+                    0x0 => {
+                        debug_log!(
+                            "BEQ rs1={}, rs1_val={}, rs2={}, rs2_val={}, imm={}, pc={}",
+                            rs1,
+                            rs1_val,
+                            rs2,
+                            rs2_val,
+                            imm,
+                            self.pc,
+                        );
+                        rs1_val == rs2_val
+                    }
+                    0x1 => {
+                        debug_log!(
+                            "BNE rs1={}, rs1_val={}, rs2={}, rs2_val={}, imm={}, pc={}",
+                            rs1,
+                            rs1_val,
+                            rs2,
+                            rs2_val,
+                            imm,
+                            self.pc,
+                        );
+                        rs1_val != rs2_val
+                    }
+                    0x4 => {
+                        debug_log!(
+                            "BLT rs1={}, rs1_val={}, rs2={}, rs2_val={}, imm={}, pc={}",
+                            rs1,
+                            rs1_val,
+                            rs2,
+                            rs2_val,
+                            imm,
+                            self.pc,
+                        );
+                        (rs1_val as i32) < (rs2_val as i32)
+                    }
+                    0x5 => {
+                        debug_log!(
+                            "BGE rs1={}, rs1_val={}, rs2={}, rs2_val={}, imm={}, pc={}",
+                            rs1,
+                            rs1_val,
+                            rs2,
+                            rs2_val,
+                            imm,
+                            self.pc,
+                        );
+                        (rs1_val as i32) >= (rs2_val as i32)
+                    }
+                    0x6 => {
+                        debug_log!(
+                            "BLTU rs1={}, rs1_val={}, rs2={}, rs2_val={}, imm={}, pc={}",
+                            rs1,
+                            rs1_val,
+                            rs2,
+                            rs2_val,
+                            imm,
+                            self.pc,
+                        );
+                        rs1_val < rs2_val
+                    }
+                    0x7 => {
+                        debug_log!(
+                            "BGEU rs1={}, rs1_val={}, rs2={}, rs2_val={}, imm={}, pc={}",
+                            rs1,
+                            rs1_val,
+                            rs2,
+                            rs2_val,
+                            imm,
+                            self.pc,
+                        );
+                        rs1_val >= rs2_val
+                    }
+                    _ => false,
+                };
+
+                if taken {
+                    self.pc = (self.pc as i32).wrapping_add(imm) as u32;
+                    return;
+                }
+            }
             _ => panic!("Not Supported Opcode"),
         }
         self.pc += 4
@@ -796,5 +887,95 @@ mod tests {
         cpu.memory.write32(0x80000000, 0x00209023);
         cpu.step();
         assert_eq!(cpu.memory.read16(0x80001000), 0xBEEF); // 하위 16비트만
+    }
+
+    // === Branch ===
+    #[test]
+    fn test_beq_taken() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 100);
+        cpu.write_reg(2, 100);
+        // BEQ x1, x2, 8 → 0x00208463
+        cpu.memory.write32(0x80000000, 0x00208463);
+        cpu.step();
+        assert_eq!(cpu.pc, 0x80000008); // 분기 성공
+    }
+
+    #[test]
+    fn test_beq_not_taken() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 100);
+        cpu.write_reg(2, 200);
+        // BEQ x1, x2, 8 → 0x00208463
+        cpu.memory.write32(0x80000000, 0x00208463);
+        cpu.step();
+        assert_eq!(cpu.pc, 0x80000004); // 분기 실패, 다음 명령어
+    }
+
+    #[test]
+    fn test_bne_taken() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 100);
+        cpu.write_reg(2, 200);
+        // BNE x1, x2, 8 → 0x00209463
+        cpu.memory.write32(0x80000000, 0x00209463);
+        cpu.step();
+        assert_eq!(cpu.pc, 0x80000008);
+    }
+
+    #[test]
+    fn test_blt_signed() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, (-5_i32) as u32); // -5
+        cpu.write_reg(2, 5);
+        // BLT x1, x2, 8 → 0x0020C463
+        cpu.memory.write32(0x80000000, 0x0020C463);
+        cpu.step();
+        assert_eq!(cpu.pc, 0x80000008); // -5 < 5 (signed)
+    }
+
+    #[test]
+    fn test_bge_signed() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 5);
+        cpu.write_reg(2, (-5_i32) as u32);
+        // BGE x1, x2, 8 → 0x0020D463
+        cpu.memory.write32(0x80000000, 0x0020D463);
+        cpu.step();
+        assert_eq!(cpu.pc, 0x80000008); // 5 >= -5 (signed)
+    }
+
+    #[test]
+    fn test_bltu_unsigned() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 5);
+        cpu.write_reg(2, (-1_i32) as u32); // 0xFFFFFFFF
+        // BLTU x1, x2, 8 → 0x0020E463
+        cpu.memory.write32(0x80000000, 0x0020E463);
+        cpu.step();
+        assert_eq!(cpu.pc, 0x80000008); // 5 < 0xFFFFFFFF (unsigned)
+    }
+
+    #[test]
+    fn test_bgeu_unsigned() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, (-1_i32) as u32); // 0xFFFFFFFF
+        cpu.write_reg(2, 5);
+        // BGEU x1, x2, 8 → 0x0020F463
+        cpu.memory.write32(0x80000000, 0x0020F463);
+        cpu.step();
+        assert_eq!(cpu.pc, 0x80000008); // 0xFFFFFFFF >= 5 (unsigned)
+    }
+
+    #[test]
+    fn test_branch_backward() {
+        let mut cpu = Cpu::new();
+        cpu.pc = 0x80000008; // 시작 위치를 뒤로
+        cpu.write_reg(1, 1);
+        cpu.write_reg(2, 1);
+        // BEQ x1, x2, -8 → 0xFE208CE3
+        cpu.memory.write32(0x80000008, 0xFE208CE3);
+        cpu.step();
+        assert_eq!(cpu.pc, 0x80000000); // 뒤로 분기
     }
 }
