@@ -1,7 +1,7 @@
 use crate::{DRAM_BASE, debug_log, decoder, memory::Memory};
 
-const OP_I: u32 = 0x13;
-const OP_R: u32 = 0x33;
+const OP_IMM: u32 = 0x13;
+const OP: u32 = 0x33;
 
 pub struct Cpu {
     pub regs: [u32; 32],
@@ -37,7 +37,7 @@ impl Cpu {
         let op = decoder::opcode(inst);
 
         match op {
-            OP_I => {
+            OP_IMM => {
                 debug_log!("IType");
                 let funct3 = decoder::funct3(inst);
                 let rd = decoder::rd(inst);
@@ -154,7 +154,7 @@ impl Cpu {
                     _ => debug_log!("Not Implemented"),
                 }
             }
-            OP_R => {
+            OP => {
                 debug_log!("RType");
                 let funct3 = decoder::funct3(inst);
                 let funct7 = decoder::funct7(inst);
