@@ -68,6 +68,28 @@ impl Cpu {
                         );
                         self.write_reg(rd, rs1_val << shamt);
                     }
+                    0x2 => {
+                        debug_log!(
+                            "SLTI rd={}, rs1={}, rs1_val={}, imm={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            imm
+                        );
+                        let result = if (rs1_val as i32) < imm { 1 } else { 0 };
+                        self.write_reg(rd, result);
+                    }
+                    0x3 => {
+                        debug_log!(
+                            "SLTIU rd={}, rs1={}, rs1_val={}, imm={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            imm
+                        );
+                        let result = if rs1_val < (imm as u32) { 1 } else { 0 };
+                        self.write_reg(rd, result);
+                    }
                     0x4 => {
                         debug_log!(
                             "XORI rd={}, rs1={}, rs1_val={}, imm={}",
@@ -178,6 +200,34 @@ impl Cpu {
                         );
                         self.write_reg(rd, rs1_val << shamt);
                     }
+                    (0x2, 0x0) => {
+                        debug_log!(
+                            "SLT rd={}, rs1={}, rs1_val={}, rs2={}, rs2_val={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            rs2,
+                            rs2_val
+                        );
+                        let result = if (rs1_val as i32) < (rs2_val as i32) {
+                            1
+                        } else {
+                            0
+                        };
+                        self.write_reg(rd, result);
+                    }
+                    (0x3, 0x0) => {
+                        debug_log!(
+                            "SLTU rd={}, rs1={}, rs1_val={}, rs2={}, rs2_val={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            rs2,
+                            rs2_val
+                        );
+                        let result = if rs1_val < rs2_val { 1 } else { 0 };
+                        self.write_reg(rd, result);
+                    }
                     (0x4, 0x0) => {
                         debug_log!(
                             "XOR rd={}, rs1={}, rs1_val={}, rs2={}, rs2_val={}",
@@ -237,7 +287,6 @@ impl Cpu {
                         );
                         self.write_reg(rd, rs1_val & rs2_val);
                     }
-
                     _ => debug_log!("Not Implemented"),
                 }
             }
@@ -487,5 +536,47 @@ mod tests {
         cpu.memory.write32(0x80000000, 0x4040D113);
         cpu.step();
         assert_eq!(cpu.read_reg(2), 0xF8000000); // 산술 시프트
+    }
+
+    #[test]
+    fn test_slt_signed() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, (-5_i32) as u32); // -5
+        cpu.write_reg(2, 5);
+        // SLT x3, x1, x2 → 0x0020A1B3
+        cpu.memory.write32(0x80000000, 0x0020A1B3);
+        cpu.step();
+        assert_eq!(cpu.read_reg(3), 1); // -5 < 5 (signed)
+    }
+
+    #[test]
+    fn test_sltu_unsigned() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, (-5_i32) as u32); // 0xFFFFFFFB
+        cpu.write_reg(2, 5);
+        // SLTU x3, x1, x2 → 0x0020B1B3
+        cpu.memory.write32(0x80000000, 0x0020B1B3);
+        cpu.step();
+        assert_eq!(cpu.read_reg(3), 0); // 0xFFFFFFFB > 5 (unsigned)
+    }
+
+    #[test]
+    fn test_slti() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 5);
+        // SLTI x2, x1, 10 → 0x00A0A113
+        cpu.memory.write32(0x80000000, 0x00A0A113);
+        cpu.step();
+        assert_eq!(cpu.read_reg(2), 1); // 5 < 10
+    }
+
+    #[test]
+    fn test_sltiu() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 5);
+        // SLTIU x2, x1, -1 (0xFFF) → 0xFFF0B113
+        cpu.memory.write32(0x80000000, 0xFFF0B113);
+        cpu.step();
+        assert_eq!(cpu.read_reg(2), 1); // 5 < 0xFFFFFFFF (unsigned)
     }
 }
