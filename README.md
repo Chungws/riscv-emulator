@@ -36,7 +36,7 @@ cargo test
 - [x] Step 6: 논리 연산 (AND, OR, XOR...)
 - [x] Step 7: 시프트 연산 (SLL, SRL, SRA...)
 - [x] Step 8: 비교 연산 (SLT, SLTU...)
-- [ ] Step 9: 로드/스토어 (LW, SW...)
+- [x] Step 9: 로드/스토어 (LW, SW...)
 - [ ] Step 10: 분기 (BEQ, BNE...)
 - [ ] Step 11: 점프 (JAL, JALR)
 - [ ] Step 12: 상위 즉시값 (LUI, AUIPC)
