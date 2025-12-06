@@ -1,3 +1,5 @@
+use core::panic;
+
 use crate::{DRAM_BASE, debug_log, decoder, memory::Memory};
 
 const OP_IMM: u32 = 0x13;
@@ -9,11 +11,13 @@ const JAL: u32 = 0x6F;
 const JALR: u32 = 0x67;
 const LUI: u32 = 0x37;
 const AUIPC: u32 = 0x17;
+const SYSTEM: u32 = 0x73;
 
 pub struct Cpu {
     pub regs: [u32; 32],
     pub pc: u32,
     pub memory: Memory,
+    pub halted: bool,
 }
 
 impl Cpu {
@@ -22,6 +26,7 @@ impl Cpu {
             regs: [0; 32],
             pc: DRAM_BASE,
             memory: Memory::new(),
+            halted: false,
         }
     }
 
@@ -555,7 +560,25 @@ impl Cpu {
                 let rd = decoder::rd(inst);
                 let imm = decoder::imm_u(inst);
                 debug_log!("AUIPC rd={}, imm={}, pc={}", rd, imm, self.pc);
-                self.write_reg(rd, ((self.pc as i32).wrapping_add(imm)) as u32);
+                self.write_reg(rd, (self.pc as i32).wrapping_add(imm) as u32);
+            }
+            SYSTEM => {
+                debug_log!("SYSTEM");
+                // let rd = decoder::rd(inst);
+                // let rs1 = decoder::rs1(inst);
+                // let rs1_val = self.read_reg(rs1);
+                let imm = decoder::imm_i(inst);
+                match imm {
+                    0x000 => {
+                        debug_log!("ECALL");
+                        self.halted = true;
+                    }
+                    0x001 => {
+                        debug_log!("EBREAK");
+                        self.halted = true;
+                    }
+                    _ => debug_log!("Not Implemented"),
+                }
             }
             _ => panic!("Not Supported Opcode"),
         }
@@ -1115,5 +1138,35 @@ mod tests {
         cpu.memory.write32(0x80001000, 0x00001097);
         cpu.step();
         assert_eq!(cpu.read_reg(1), 0x80001000 + 0x1000);
+    }
+
+    // === System ===
+    #[test]
+    fn test_ecall() {
+        let mut cpu = Cpu::new();
+        // ECALL → 0x00000073
+        cpu.memory.write32(0x80000000, 0x00000073);
+        cpu.step();
+        assert!(cpu.halted);
+    }
+
+    #[test]
+    fn test_ebreak() {
+        let mut cpu = Cpu::new();
+        // EBREAK → 0x00100073
+        cpu.memory.write32(0x80000000, 0x00100073);
+        cpu.step();
+        assert!(cpu.halted);
+    }
+
+    #[test]
+    fn test_ecall_check_a0() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(10, 0); // a0 = 0 (테스트 통과)
+        // ECALL → 0x00000073
+        cpu.memory.write32(0x80000000, 0x00000073);
+        cpu.step();
+        assert!(cpu.halted);
+        assert_eq!(cpu.read_reg(10), 0); // a0 확인
     }
 }
