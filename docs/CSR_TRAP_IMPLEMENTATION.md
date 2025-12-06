@@ -188,15 +188,15 @@ SYSTEM => {
 
 ### 체크리스트
 
-- [ ] `decoder::csr_addr()` 추가
-- [ ] CSRRW 구현
-- [ ] CSRRS 구현
-- [ ] CSRRC 구현
-- [ ] CSRRWI 구현
-- [ ] CSRRSI 구현
-- [ ] CSRRCI 구현
-- [ ] 테스트 작성
-- [ ] `cargo test` 확인
+- [x] `decoder::csr_addr()` 추가
+- [x] CSRRW 구현
+- [x] CSRRS 구현
+- [x] CSRRC 구현
+- [x] CSRRWI 구현
+- [x] CSRRSI 구현
+- [x] CSRRCI 구현
+- [x] 테스트 작성
+- [x] `cargo test` 확인
 
 ---
 
