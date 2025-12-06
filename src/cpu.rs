@@ -325,8 +325,8 @@ impl Cpu {
                 let rd = decoder::rd(inst);
                 let rs1 = decoder::rs1(inst);
                 let rs1_val = self.read_reg(rs1);
-                let imm = decoder::imm_i(inst) as i64;
-                let addr = (rs1_val as i64).wrapping_add(imm) as u64;
+                let imm = decoder::imm_i(inst);
+                let addr = (rs1_val as i64).wrapping_add(imm as i64) as u64;
 
                 match funct3 {
                     0x0 => {
@@ -430,8 +430,8 @@ impl Cpu {
                 let rs1_val = self.read_reg(rs1);
                 let rs2 = decoder::rs2(inst);
                 let rs2_val = self.read_reg(rs2);
-                let imm = decoder::imm_s(inst) as i64;
-                let addr = (rs1_val as i64).wrapping_add(imm) as u64;
+                let imm = decoder::imm_s(inst);
+                let addr = (rs1_val as i64).wrapping_add(imm as i64) as u64;
 
                 match funct3 {
                     0x0 => {
@@ -492,7 +492,7 @@ impl Cpu {
                 let rs1_val = self.read_reg(rs1);
                 let rs2 = decoder::rs2(inst);
                 let rs2_val = self.read_reg(rs2);
-                let imm = decoder::imm_b(inst) as i64;
+                let imm = decoder::imm_b(inst);
 
                 let taken = match funct3 {
                     0x0 => {
@@ -571,17 +571,17 @@ impl Cpu {
                 };
 
                 if taken {
-                    self.pc = (self.pc as i64).wrapping_add(imm) as u64;
+                    self.pc = (self.pc as i64).wrapping_add(imm as i64) as u64;
                     return;
                 }
             }
             JAL => {
                 debug_log!("JAL");
                 let rd = decoder::rd(inst);
-                let imm = decoder::imm_j(inst) as i64;
+                let imm = decoder::imm_j(inst);
                 debug_log!("JAL rd={} imm={}, pc={}", rd, imm, self.pc);
                 self.write_reg(rd, self.pc + 4);
-                self.pc = (self.pc as i64).wrapping_add(imm) as u64;
+                self.pc = (self.pc as i64).wrapping_add(imm as i64) as u64;
                 return;
             }
             JALR => {
@@ -589,7 +589,7 @@ impl Cpu {
                 let rd = decoder::rd(inst);
                 let rs1 = decoder::rs1(inst);
                 let rs1_val = self.read_reg(rs1);
-                let imm = decoder::imm_i(inst) as i64;
+                let imm = decoder::imm_i(inst);
 
                 debug_log!(
                     "JALR rd={}, rs1={}, rs1_val={}, imm={}, pc={}",
@@ -600,7 +600,7 @@ impl Cpu {
                     self.pc
                 );
                 self.write_reg(rd, self.pc + 4);
-                self.pc = ((rs1_val as i64).wrapping_add(imm) as u64) & 0xFFFFFFFE;
+                self.pc = ((rs1_val as i64).wrapping_add(imm as i64) as u64) & !1u64;
                 return;
             }
             LUI => {
@@ -613,9 +613,9 @@ impl Cpu {
             AUIPC => {
                 debug_log!("AUIPC");
                 let rd = decoder::rd(inst);
-                let imm = decoder::imm_u(inst) as i64;
+                let imm = decoder::imm_u(inst);
                 debug_log!("AUIPC rd={}, imm={}, pc={}", rd, imm, self.pc);
-                self.write_reg(rd, (self.pc as i64).wrapping_add(imm) as u64);
+                self.write_reg(rd, (self.pc as i64).wrapping_add(imm as i64) as u64);
             }
             SYSTEM => {
                 debug_log!("SYSTEM");
