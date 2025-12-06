@@ -1,5 +1,4 @@
-use crate::DRAM_BASE;
-
+pub const DRAM_BASE: u32 = 0x80000000;
 pub const DRAM_SIZE: usize = 0x8000000;
 pub struct Memory {
     dram: Vec<u8>,
