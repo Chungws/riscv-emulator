@@ -3,8 +3,8 @@ use std::{
     io::{Write, stdout},
 };
 
-pub const UART_BASE: u32 = 0x10000000;
-pub const UART_SIZE: u32 = 8;
+pub const UART_BASE: u64 = 0x10000000;
+pub const UART_SIZE: u64 = 8;
 
 const UART_RBR: u32 = 0; // Receive Buffer Register
 const UART_THR: u32 = 0; // Transmit Holding Register

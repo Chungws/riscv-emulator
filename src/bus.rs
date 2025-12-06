@@ -13,7 +13,7 @@ impl Bus {
         }
     }
 
-    pub fn read8(&self, addr: u32) -> u8 {
+    pub fn read8(&self, addr: u64) -> u8 {
         if addr >= devices::UART_BASE && addr < devices::UART_BASE + devices::UART_SIZE {
             self.uart.read8()
         } else if addr >= devices::DRAM_BASE {
@@ -23,7 +23,7 @@ impl Bus {
         }
     }
 
-    pub fn read16(&self, addr: u32) -> u16 {
+    pub fn read16(&self, addr: u64) -> u16 {
         if addr >= devices::UART_BASE && addr < devices::UART_BASE + devices::UART_SIZE {
             self.uart.read8() as u16
         } else if addr >= devices::DRAM_BASE {
@@ -33,7 +33,7 @@ impl Bus {
         }
     }
 
-    pub fn read32(&self, addr: u32) -> u32 {
+    pub fn read32(&self, addr: u64) -> u32 {
         if addr >= devices::UART_BASE && addr < devices::UART_BASE + devices::UART_SIZE {
             self.uart.read8() as u32
         } else if addr >= devices::DRAM_BASE {
@@ -43,7 +43,16 @@ impl Bus {
         }
     }
 
-    pub fn write8(&mut self, addr: u32, value: u8) {
+    pub fn read64(&self, addr: u64) -> u64 {
+        if addr >= devices::UART_BASE && addr < devices::UART_BASE + devices::UART_SIZE {
+            self.uart.read8() as u64
+        } else if addr >= devices::DRAM_BASE {
+            self.memory.read64(addr)
+        } else {
+            panic!("Invalid address: {:#x}", addr);
+        }
+    }
+    pub fn write8(&mut self, addr: u64, value: u8) {
         if addr >= devices::UART_BASE && addr < devices::UART_BASE + devices::UART_SIZE {
             self.uart.write8(value);
         } else if addr >= devices::DRAM_BASE {
@@ -53,7 +62,7 @@ impl Bus {
         }
     }
 
-    pub fn write16(&mut self, addr: u32, value: u16) {
+    pub fn write16(&mut self, addr: u64, value: u16) {
         if addr >= devices::UART_BASE && addr < devices::UART_BASE + devices::UART_SIZE {
             self.uart.write8(value as u8);
         } else if addr >= devices::DRAM_BASE {
@@ -63,11 +72,21 @@ impl Bus {
         }
     }
 
-    pub fn write32(&mut self, addr: u32, value: u32) {
+    pub fn write32(&mut self, addr: u64, value: u32) {
         if addr >= devices::UART_BASE && addr < devices::UART_BASE + devices::UART_SIZE {
             self.uart.write8(value as u8);
         } else if addr >= devices::DRAM_BASE {
             self.memory.write32(addr, value);
+        } else {
+            panic!("Invalid address: {:#x}", addr);
+        }
+    }
+
+    pub fn write64(&mut self, addr: u64, value: u64) {
+        if addr >= devices::UART_BASE && addr < devices::UART_BASE + devices::UART_SIZE {
+            self.uart.write8(value as u8);
+        } else if addr >= devices::DRAM_BASE {
+            self.memory.write64(addr, value);
         } else {
             panic!("Invalid address: {:#x}", addr);
         }

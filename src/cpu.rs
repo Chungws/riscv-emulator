@@ -14,8 +14,8 @@ const AUIPC: u32 = 0x17;
 const SYSTEM: u32 = 0x73;
 
 pub struct Cpu {
-    pub regs: [u32; 32],
-    pub pc: u32,
+    pub regs: [u64; 32],
+    pub pc: u64,
     pub bus: Bus,
     pub halted: bool,
 }
@@ -30,11 +30,11 @@ impl Cpu {
         }
     }
 
-    pub fn read_reg(&self, index: usize) -> u32 {
+    pub fn read_reg(&self, index: usize) -> u64 {
         self.regs[index]
     }
 
-    pub fn write_reg(&mut self, index: usize, value: u32) {
+    pub fn write_reg(&mut self, index: usize, value: u64) {
         if index != 0 {
             self.regs[index] = value;
         }
@@ -44,10 +44,10 @@ impl Cpu {
         self.bus.read32(self.pc)
     }
 
-    pub fn load_program(&mut self, program: &[u32]) {
+    pub fn load_program(&mut self, program: &[u64]) {
         for (i, &inst) in program.iter().enumerate() {
-            let addr = DRAM_BASE + (i as u32) * 4;
-            self.bus.write32(addr, inst);
+            let addr = DRAM_BASE + (i as u64) * 4;
+            self.bus.write64(addr, inst);
         }
     }
 
@@ -79,10 +79,10 @@ impl Cpu {
                             rs1_val,
                             imm
                         );
-                        self.write_reg(rd, rs1_val.wrapping_add(imm as u32));
+                        self.write_reg(rd, rs1_val.wrapping_add(imm as u64));
                     }
                     0x1 => {
-                        let shamt = (imm as u32) & 0x1F;
+                        let shamt = (imm as u64) & 0x3F;
                         debug_log!(
                             "SLLI rd={}, rs1={}, rs1_val={}, imm={}, shamt={}",
                             rd,
@@ -101,7 +101,11 @@ impl Cpu {
                             rs1_val,
                             imm
                         );
-                        let result = if (rs1_val as i32) < imm { 1 } else { 0 };
+                        let result = if (rs1_val as i64) < (imm as i64) {
+                            1
+                        } else {
+                            0
+                        };
                         self.write_reg(rd, result);
                     }
                     0x3 => {
@@ -112,7 +116,7 @@ impl Cpu {
                             rs1_val,
                             imm
                         );
-                        let result = if rs1_val < (imm as u32) { 1 } else { 0 };
+                        let result = if rs1_val < (imm as u64) { 1 } else { 0 };
                         self.write_reg(rd, result);
                     }
                     0x4 => {
@@ -123,11 +127,11 @@ impl Cpu {
                             rs1_val,
                             imm
                         );
-                        self.write_reg(rd, rs1_val ^ (imm as u32));
+                        self.write_reg(rd, rs1_val ^ (imm as u64));
                     }
                     0x5 => {
-                        let funct7 = ((imm as u32) >> 5) & 0x7F;
-                        let shamt = (imm as u32) & 0x1F;
+                        let funct7 = ((imm as u64) >> 5) & 0x7F;
+                        let shamt = (imm as u64) & 0x3F;
                         match funct7 {
                             0x00 => {
                                 debug_log!(
@@ -151,7 +155,7 @@ impl Cpu {
                                     shamt,
                                     funct7
                                 );
-                                self.write_reg(rd, ((rs1_val as i32) >> shamt) as u32);
+                                self.write_reg(rd, ((rs1_val as i64) >> shamt) as u64);
                             }
                             _ => panic!("Not Implemented"),
                         }
@@ -164,7 +168,7 @@ impl Cpu {
                             rs1_val,
                             imm
                         );
-                        self.write_reg(rd, rs1_val | (imm as u32));
+                        self.write_reg(rd, rs1_val | (imm as u64));
                     }
                     0x7 => {
                         debug_log!(
@@ -174,7 +178,7 @@ impl Cpu {
                             rs1_val,
                             imm
                         );
-                        self.write_reg(rd, rs1_val & (imm as u32));
+                        self.write_reg(rd, rs1_val & (imm as u64));
                     }
                     _ => debug_log!("Not Implemented"),
                 }
@@ -213,7 +217,7 @@ impl Cpu {
                         self.write_reg(rd, rs1_val.wrapping_sub(rs2_val));
                     }
                     (0x1, 0x0) => {
-                        let shamt = rs2_val & 0x1F;
+                        let shamt = rs2_val & 0x3F;
                         debug_log!(
                             "SLL rd={}, rs1={}, rs1_val={}, rs2={}, rs2_val={}, shamt={}",
                             rd,
@@ -234,7 +238,7 @@ impl Cpu {
                             rs2,
                             rs2_val
                         );
-                        let result = if (rs1_val as i32) < (rs2_val as i32) {
+                        let result = if (rs1_val as i64) < (rs2_val as i64) {
                             1
                         } else {
                             0
@@ -265,7 +269,7 @@ impl Cpu {
                         self.write_reg(rd, rs1_val ^ rs2_val);
                     }
                     (0x5, 0x0) => {
-                        let shamt = rs2_val & 0x1F;
+                        let shamt = rs2_val & 0x3F;
                         debug_log!(
                             "SRL rd={}, rs1={}, rs1_val={}, rs2={}, rs2_val={}, shamt={}",
                             rd,
@@ -278,7 +282,7 @@ impl Cpu {
                         self.write_reg(rd, rs1_val >> shamt);
                     }
                     (0x5, 0x20) => {
-                        let shamt = rs2_val & 0x1F;
+                        let shamt = rs2_val & 0x3F;
                         debug_log!(
                             "SRA rd={}, rs1={}, rs1_val={}, rs2={}, rs2_val={}, shamt={}",
                             rd,
@@ -288,7 +292,7 @@ impl Cpu {
                             rs2_val,
                             shamt
                         );
-                        self.write_reg(rd, ((rs1_val as i32) >> shamt) as u32);
+                        self.write_reg(rd, ((rs1_val as i64) >> shamt) as u64);
                     }
                     (0x6, 0x0) => {
                         debug_log!(
@@ -321,12 +325,12 @@ impl Cpu {
                 let rd = decoder::rd(inst);
                 let rs1 = decoder::rs1(inst);
                 let rs1_val = self.read_reg(rs1);
-                let imm = decoder::imm_i(inst);
-                let addr = (rs1_val as i32).wrapping_add(imm) as u32;
+                let imm = decoder::imm_i(inst) as i64;
+                let addr = (rs1_val as i64).wrapping_add(imm) as u64;
 
                 match funct3 {
                     0x0 => {
-                        let val = self.bus.read8(addr) as i8 as i32 as u32;
+                        let val = self.bus.read8(addr) as i8 as i64 as u64;
                         debug_log!(
                             "LB rd={}, rs1={}, rs1_val={}, imm={}, addr={}, value={}",
                             rd,
@@ -339,7 +343,7 @@ impl Cpu {
                         self.write_reg(rd, val);
                     }
                     0x1 => {
-                        let val = self.bus.read16(addr) as i16 as i32 as u32;
+                        let val = self.bus.read16(addr) as i16 as i64 as u64;
                         debug_log!(
                             "LH rd={}, rs1={}, rs1_val={}, imm={}, addr={}, value={}",
                             rd,
@@ -352,7 +356,7 @@ impl Cpu {
                         self.write_reg(rd, val);
                     }
                     0x2 => {
-                        let val = self.bus.read32(addr);
+                        let val = self.bus.read32(addr) as i32 as i64 as u64;
                         debug_log!(
                             "LW rd={}, rs1={}, rs1_val={}, imm={}, addr={}, value={}",
                             rd,
@@ -365,7 +369,7 @@ impl Cpu {
                         self.write_reg(rd, val);
                     }
                     0x4 => {
-                        let val = self.bus.read8(addr) as u32;
+                        let val = self.bus.read8(addr) as u64;
                         debug_log!(
                             "LBU rd={}, rs1={}, rs1_val={}, imm={}, addr={}, value={}",
                             rd,
@@ -378,7 +382,7 @@ impl Cpu {
                         self.write_reg(rd, val);
                     }
                     0x5 => {
-                        let val = self.bus.read16(addr) as u32;
+                        let val = self.bus.read16(addr) as u64;
                         debug_log!(
                             "LHU rd={}, rs1={}, rs1_val={}, imm={}, addr={}, value={}",
                             rd,
@@ -400,8 +404,8 @@ impl Cpu {
                 let rs1_val = self.read_reg(rs1);
                 let rs2 = decoder::rs2(inst);
                 let rs2_val = self.read_reg(rs2);
-                let imm = decoder::imm_s(inst);
-                let addr = (rs1_val as i32).wrapping_add(imm) as u32;
+                let imm = decoder::imm_s(inst) as i64;
+                let addr = (rs1_val as i64).wrapping_add(imm) as u64;
 
                 match funct3 {
                     0x0 => {
@@ -438,7 +442,7 @@ impl Cpu {
                             imm,
                             addr,
                         );
-                        self.bus.write32(addr, rs2_val);
+                        self.bus.write32(addr, rs2_val as u32);
                     }
                     _ => debug_log!("Not Implemented"),
                 }
@@ -450,7 +454,7 @@ impl Cpu {
                 let rs1_val = self.read_reg(rs1);
                 let rs2 = decoder::rs2(inst);
                 let rs2_val = self.read_reg(rs2);
-                let imm = decoder::imm_b(inst);
+                let imm = decoder::imm_b(inst) as i64;
 
                 let taken = match funct3 {
                     0x0 => {
@@ -487,7 +491,7 @@ impl Cpu {
                             imm,
                             self.pc,
                         );
-                        (rs1_val as i32) < (rs2_val as i32)
+                        (rs1_val as i64) < (rs2_val as i64)
                     }
                     0x5 => {
                         debug_log!(
@@ -499,7 +503,7 @@ impl Cpu {
                             imm,
                             self.pc,
                         );
-                        (rs1_val as i32) >= (rs2_val as i32)
+                        (rs1_val as i64) >= (rs2_val as i64)
                     }
                     0x6 => {
                         debug_log!(
@@ -529,17 +533,17 @@ impl Cpu {
                 };
 
                 if taken {
-                    self.pc = (self.pc as i32).wrapping_add(imm) as u32;
+                    self.pc = (self.pc as i64).wrapping_add(imm) as u64;
                     return;
                 }
             }
             JAL => {
                 debug_log!("JAL");
                 let rd = decoder::rd(inst);
-                let imm = decoder::imm_j(inst);
+                let imm = decoder::imm_j(inst) as i64;
                 debug_log!("JAL rd={} imm={}, pc={}", rd, imm, self.pc);
                 self.write_reg(rd, self.pc + 4);
-                self.pc = (self.pc as i32).wrapping_add(imm) as u32;
+                self.pc = (self.pc as i64).wrapping_add(imm) as u64;
                 return;
             }
             JALR => {
@@ -547,7 +551,7 @@ impl Cpu {
                 let rd = decoder::rd(inst);
                 let rs1 = decoder::rs1(inst);
                 let rs1_val = self.read_reg(rs1);
-                let imm = decoder::imm_i(inst);
+                let imm = decoder::imm_i(inst) as i64;
 
                 debug_log!(
                     "JALR rd={}, rs1={}, rs1_val={}, imm={}, pc={}",
@@ -558,7 +562,7 @@ impl Cpu {
                     self.pc
                 );
                 self.write_reg(rd, self.pc + 4);
-                self.pc = ((rs1_val as i32).wrapping_add(imm) as u32) & 0xFFFFFFFE;
+                self.pc = ((rs1_val as i64).wrapping_add(imm) as u64) & 0xFFFFFFFE;
                 return;
             }
             LUI => {
@@ -566,14 +570,14 @@ impl Cpu {
                 let rd = decoder::rd(inst);
                 let imm = decoder::imm_u(inst);
                 debug_log!("LUI rd={}, imm={}, pc={}", rd, imm, self.pc);
-                self.write_reg(rd, imm as u32);
+                self.write_reg(rd, imm as u64);
             }
             AUIPC => {
                 debug_log!("AUIPC");
                 let rd = decoder::rd(inst);
-                let imm = decoder::imm_u(inst);
+                let imm = decoder::imm_u(inst) as i64;
                 debug_log!("AUIPC rd={}, imm={}, pc={}", rd, imm, self.pc);
-                self.write_reg(rd, (self.pc as i32).wrapping_add(imm) as u32);
+                self.write_reg(rd, (self.pc as i64).wrapping_add(imm) as u64);
             }
             SYSTEM => {
                 debug_log!("SYSTEM");
@@ -646,7 +650,7 @@ mod tests {
         // ADDI x1, x0, -1 → 0xFFF00093
         cpu.bus.write32(0x80000000, 0xFFF00093);
         cpu.step();
-        assert_eq!(cpu.read_reg(1), 0xFFFFFFFF); // -1 as u32
+        assert_eq!(cpu.read_reg(1), 0xFFFFFFFFFFFFFFFF); // -1 as u64
     }
 
     #[test]
@@ -766,9 +770,9 @@ mod tests {
         // XORI x2, x1, -1 (0xFFF) → 0xFFF0C113
         cpu.bus.write32(0x80000000, 0xFFF0C113);
         cpu.step();
-        // imm = -1 → 부호확장 → 0xFFFFFFFF
-        // 0xFF ^ 0xFFFFFFFF = 0xFFFFFF00
-        assert_eq!(cpu.read_reg(2), 0xFFFFFF00);
+        // imm = -1 → 부호확장 → 0xFFFFFFFFFFFFFFFF
+        // 0xFF ^ 0xFFFFFFFFFFFFFFFF = 0xFFFFFFFFFFFFFF00
+        assert_eq!(cpu.read_reg(2), 0xFFFFFFFFFFFFFF00);
     }
     // === R-type 시프트 ===
     #[test]
@@ -797,24 +801,24 @@ mod tests {
     #[test]
     fn test_srl_shamt_wrap() {
         let mut cpu = Cpu::new();
-        cpu.write_reg(1, 0x80000000);
-        cpu.write_reg(2, 36); // 36 & 0x1F = 4
+        cpu.write_reg(1, 0x8000000000000000); // 64비트 값
+        cpu.write_reg(2, 68); // 68 & 0x3F = 4 (RV64: 6비트 shamt)
         // SRL x3, x1, x2 → 0x0020D1B3
         cpu.bus.write32(0x80000000, 0x0020D1B3);
         cpu.step();
-        assert_eq!(cpu.read_reg(3), 0x08000000); // 4비트 시프트
+        assert_eq!(cpu.read_reg(3), 0x0800000000000000); // 4비트 시프트
     }
 
     #[test]
     fn test_sra() {
         let mut cpu = Cpu::new();
-        cpu.write_reg(1, 0x80000000); // 음수 (부호 비트 1)
+        cpu.write_reg(1, 0x8000000000000000); // 64비트 음수 (부호 비트 1)
         cpu.write_reg(2, 4);
         // SRA x3, x1, x2 → 0x4020D1B3
         // funct7=0100000, rs2=00010, rs1=00001, funct3=101, rd=00011, op=0110011
         cpu.bus.write32(0x80000000, 0x4020D1B3);
         cpu.step();
-        assert_eq!(cpu.read_reg(3), 0xF8000000); // 산술 시프트, 부호 채움
+        assert_eq!(cpu.read_reg(3), 0xF800000000000000); // 산술 시프트, 부호 채움
     }
 
     // === I-type 시프트 ===
@@ -843,18 +847,18 @@ mod tests {
     #[test]
     fn test_srai() {
         let mut cpu = Cpu::new();
-        cpu.write_reg(1, 0x80000000);
+        cpu.write_reg(1, 0x8000000000000000); // 64비트 음수
         // SRAI x2, x1, 4 → 0x4040D113
         // imm=0100000_00100, rs1=00001, funct3=101, rd=00010, op=0010011
         cpu.bus.write32(0x80000000, 0x4040D113);
         cpu.step();
-        assert_eq!(cpu.read_reg(2), 0xF8000000); // 산술 시프트
+        assert_eq!(cpu.read_reg(2), 0xF800000000000000); // 산술 시프트
     }
 
     #[test]
     fn test_slt_signed() {
         let mut cpu = Cpu::new();
-        cpu.write_reg(1, (-5_i32) as u32); // -5
+        cpu.write_reg(1, (-5_i32) as u64); // -5
         cpu.write_reg(2, 5);
         // SLT x3, x1, x2 → 0x0020A1B3
         cpu.bus.write32(0x80000000, 0x0020A1B3);
@@ -865,7 +869,7 @@ mod tests {
     #[test]
     fn test_sltu_unsigned() {
         let mut cpu = Cpu::new();
-        cpu.write_reg(1, (-5_i32) as u32); // 0xFFFFFFFB
+        cpu.write_reg(1, (-5_i32) as u64); // 0xFFFFFFFB
         cpu.write_reg(2, 5);
         // SLTU x3, x1, x2 → 0x0020B1B3
         cpu.bus.write32(0x80000000, 0x0020B1B3);
@@ -903,7 +907,9 @@ mod tests {
         // LW x3, 0(x1) → 0x0000A183
         cpu.bus.write32(0x80000004, 0x0000A183);
         cpu.step();
-        assert_eq!(cpu.read_reg(3), 0xDEADBEEF);
+        // RV64에서 LW는 32비트 로드 후 부호확장
+        // 0xDEADBEEF는 bit31=1이므로 음수 → 0xFFFFFFFFDEADBEEF
+        assert_eq!(cpu.read_reg(3), 0xFFFFFFFFDEADBEEF);
     }
 
     #[test]
@@ -914,7 +920,7 @@ mod tests {
         // LB x2, 0(x1) → 0x00008103
         cpu.bus.write32(0x80000000, 0x00008103);
         cpu.step();
-        assert_eq!(cpu.read_reg(2), 0xFFFFFF80); // sign extended
+        assert_eq!(cpu.read_reg(2), 0xFFFFFFFFFFFFFF80); // sign extended to 64-bit
     }
 
     #[test]
@@ -935,7 +941,7 @@ mod tests {
         // LH x2, 0(x1) → 0x00009103
         cpu.bus.write32(0x80000000, 0x00009103);
         cpu.step();
-        assert_eq!(cpu.read_reg(2), 0xFFFF8000); // sign extended
+        assert_eq!(cpu.read_reg(2), 0xFFFFFFFFFFFF8000); // sign extended to 64-bit
     }
 
     #[test]
@@ -1008,7 +1014,7 @@ mod tests {
     #[test]
     fn test_blt_signed() {
         let mut cpu = Cpu::new();
-        cpu.write_reg(1, (-5_i32) as u32); // -5
+        cpu.write_reg(1, (-5_i32) as u64); // -5
         cpu.write_reg(2, 5);
         // BLT x1, x2, 8 → 0x0020C463
         cpu.bus.write32(0x80000000, 0x0020C463);
@@ -1020,7 +1026,7 @@ mod tests {
     fn test_bge_signed() {
         let mut cpu = Cpu::new();
         cpu.write_reg(1, 5);
-        cpu.write_reg(2, (-5_i32) as u32);
+        cpu.write_reg(2, (-5_i32) as u64);
         // BGE x1, x2, 8 → 0x0020D463
         cpu.bus.write32(0x80000000, 0x0020D463);
         cpu.step();
@@ -1031,7 +1037,7 @@ mod tests {
     fn test_bltu_unsigned() {
         let mut cpu = Cpu::new();
         cpu.write_reg(1, 5);
-        cpu.write_reg(2, (-1_i32) as u32); // 0xFFFFFFFF
+        cpu.write_reg(2, (-1_i32) as u64); // 0xFFFFFFFF
         // BLTU x1, x2, 8 → 0x0020E463
         cpu.bus.write32(0x80000000, 0x0020E463);
         cpu.step();
@@ -1041,7 +1047,7 @@ mod tests {
     #[test]
     fn test_bgeu_unsigned() {
         let mut cpu = Cpu::new();
-        cpu.write_reg(1, (-1_i32) as u32); // 0xFFFFFFFF
+        cpu.write_reg(1, (-1_i32) as u64); // 0xFFFFFFFF
         cpu.write_reg(2, 5);
         // BGEU x1, x2, 8 → 0x0020F463
         cpu.bus.write32(0x80000000, 0x0020F463);
@@ -1129,9 +1135,10 @@ mod tests {
     fn test_lui_high_bit() {
         let mut cpu = Cpu::new();
         // LUI x1, 0x80000 → 0x800000B7
+        // RV64에서 LUI는 32비트 결과를 64비트로 부호확장
         cpu.bus.write32(0x80000000, 0x800000B7);
         cpu.step();
-        assert_eq!(cpu.read_reg(1), 0x80000000);
+        assert_eq!(cpu.read_reg(1), 0xFFFFFFFF80000000); // sign extended
     }
 
     #[test]

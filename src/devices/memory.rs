@@ -1,5 +1,6 @@
-pub const DRAM_BASE: u32 = 0x80000000;
-pub const DRAM_SIZE: usize = 0x8000000;
+pub const DRAM_BASE: u64 = 0x80000000;
+pub const DRAM_SIZE: u64 = 0x8000000;
+
 pub struct Memory {
     dram: Vec<u8>,
 }
@@ -7,32 +8,40 @@ pub struct Memory {
 impl Memory {
     pub fn new() -> Self {
         Self {
-            dram: vec![0; DRAM_SIZE],
+            dram: vec![0; DRAM_SIZE as usize],
         }
     }
 
-    pub fn read8(&self, addr: u32) -> u8 {
+    pub fn read8(&self, addr: u64) -> u8 {
         let index = (addr - DRAM_BASE) as usize;
         self.dram[index]
     }
 
-    pub fn read16(&self, addr: u32) -> u16 {
+    pub fn read16(&self, addr: u64) -> u16 {
         let index = (addr - DRAM_BASE) as usize;
         u16::from_le_bytes([self.dram[index], self.dram[index + 1]])
     }
 
-    pub fn read32(&self, addr: u32) -> u32 {
+    pub fn read32(&self, addr: u64) -> u32 {
         let index = (addr - DRAM_BASE) as usize;
         let slice = &self.dram[index..(index + 4)];
         u32::from_le_bytes([slice[0], slice[1], slice[2], slice[3]])
     }
 
-    pub fn write8(&mut self, addr: u32, value: u8) {
+    pub fn read64(&self, addr: u64) -> u64 {
+        let index = (addr - DRAM_BASE) as usize;
+        let slice = &self.dram[index..(index + 8)];
+        u64::from_le_bytes([
+            slice[0], slice[1], slice[2], slice[3], slice[4], slice[5], slice[6], slice[7],
+        ])
+    }
+
+    pub fn write8(&mut self, addr: u64, value: u8) {
         let index = (addr - DRAM_BASE) as usize;
         self.dram[index] = value;
     }
 
-    pub fn write16(&mut self, addr: u32, value: u16) {
+    pub fn write16(&mut self, addr: u64, value: u16) {
         let index = (addr - DRAM_BASE) as usize;
         let bytes = value.to_le_bytes();
         for i in 0..2 {
@@ -40,10 +49,18 @@ impl Memory {
         }
     }
 
-    pub fn write32(&mut self, addr: u32, value: u32) {
+    pub fn write32(&mut self, addr: u64, value: u32) {
         let index = (addr - DRAM_BASE) as usize;
         let bytes = value.to_le_bytes();
         for i in 0..4 {
+            self.dram[index + i] = bytes[i]
+        }
+    }
+
+    pub fn write64(&mut self, addr: u64, value: u64) {
+        let index = (addr - DRAM_BASE) as usize;
+        let bytes = value.to_le_bytes();
+        for i in 0..8 {
             self.dram[index + i] = bytes[i]
         }
     }
