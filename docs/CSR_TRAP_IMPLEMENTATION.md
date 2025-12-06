@@ -71,11 +71,11 @@ pub struct Cpu {
 
 ### 체크리스트
 
-- [ ] `src/csr.rs` 파일 생성
-- [ ] `Csr` 구조체 구현
-- [ ] `lib.rs`에 모듈 추가
-- [ ] `Cpu`에 `csr` 필드 추가
-- [ ] `cargo build` 확인
+- [x] `src/csr.rs` 파일 생성
+- [x] `Csr` 구조체 구현
+- [x] `lib.rs`에 모듈 추가
+- [x] `Cpu`에 `csr` 필드 추가
+- [x] `cargo build` 확인
 
 ---
 
