@@ -226,9 +226,9 @@ pub struct Cpu {
 - `self.memory.write32(...)` → `self.bus.write32(...)`
 
 ### 체크리스트
-- [ ] Cpu 구조체 수정 (memory → bus)
-- [ ] 모든 memory 참조를 bus로 변경
-- [ ] `cargo test` 통과 확인
+- [x] Cpu 구조체 수정 (memory → bus)
+- [x] 모든 memory 참조를 bus로 변경
+- [x] `cargo test` 통과 확인
 
 ---
 
@@ -290,10 +290,10 @@ Hi!
 ```
 
 ### 체크리스트
-- [ ] 프로그램 기계어 변환
-- [ ] main.rs 수정
-- [ ] `cargo run` 실행
-- [ ] "Hi!" 출력 확인
+- [x] 프로그램 기계어 변환
+- [x] main.rs 수정
+- [x] `cargo run` 실행
+- [x] "Hi!" 출력 확인
 
 ---
 

@@ -1,6 +1,6 @@
 use core::panic;
 
-use crate::{debug_log, decoder, devices::DRAM_BASE, devices::Memory};
+use crate::{Bus, debug_log, decoder, devices::DRAM_BASE};
 
 const OP_IMM: u32 = 0x13;
 const OP: u32 = 0x33;
@@ -16,7 +16,7 @@ const SYSTEM: u32 = 0x73;
 pub struct Cpu {
     pub regs: [u32; 32],
     pub pc: u32,
-    pub memory: Memory,
+    pub bus: Bus,
     pub halted: bool,
 }
 
@@ -25,7 +25,7 @@ impl Cpu {
         Self {
             regs: [0; 32],
             pc: DRAM_BASE,
-            memory: Memory::new(),
+            bus: Bus::new(),
             halted: false,
         }
     }
@@ -41,13 +41,13 @@ impl Cpu {
     }
 
     pub fn fetch(&self) -> u32 {
-        self.memory.read32(self.pc)
+        self.bus.read32(self.pc)
     }
 
     pub fn load_program(&mut self, program: &[u32]) {
         for (i, &inst) in program.iter().enumerate() {
             let addr = DRAM_BASE + (i as u32) * 4;
-            self.memory.write32(addr, inst);
+            self.bus.write32(addr, inst);
         }
     }
 
@@ -326,7 +326,7 @@ impl Cpu {
 
                 match funct3 {
                     0x0 => {
-                        let val = self.memory.read8(addr) as i8 as i32 as u32;
+                        let val = self.bus.read8(addr) as i8 as i32 as u32;
                         debug_log!(
                             "LB rd={}, rs1={}, rs1_val={}, imm={}, addr={}, value={}",
                             rd,
@@ -339,7 +339,7 @@ impl Cpu {
                         self.write_reg(rd, val);
                     }
                     0x1 => {
-                        let val = self.memory.read16(addr) as i16 as i32 as u32;
+                        let val = self.bus.read16(addr) as i16 as i32 as u32;
                         debug_log!(
                             "LH rd={}, rs1={}, rs1_val={}, imm={}, addr={}, value={}",
                             rd,
@@ -352,7 +352,7 @@ impl Cpu {
                         self.write_reg(rd, val);
                     }
                     0x2 => {
-                        let val = self.memory.read32(addr);
+                        let val = self.bus.read32(addr);
                         debug_log!(
                             "LW rd={}, rs1={}, rs1_val={}, imm={}, addr={}, value={}",
                             rd,
@@ -365,7 +365,7 @@ impl Cpu {
                         self.write_reg(rd, val);
                     }
                     0x4 => {
-                        let val = self.memory.read8(addr) as u32;
+                        let val = self.bus.read8(addr) as u32;
                         debug_log!(
                             "LBU rd={}, rs1={}, rs1_val={}, imm={}, addr={}, value={}",
                             rd,
@@ -378,7 +378,7 @@ impl Cpu {
                         self.write_reg(rd, val);
                     }
                     0x5 => {
-                        let val = self.memory.read16(addr) as u32;
+                        let val = self.bus.read16(addr) as u32;
                         debug_log!(
                             "LHU rd={}, rs1={}, rs1_val={}, imm={}, addr={}, value={}",
                             rd,
@@ -414,7 +414,7 @@ impl Cpu {
                             imm,
                             addr,
                         );
-                        self.memory.write8(addr, rs2_val as u8);
+                        self.bus.write8(addr, rs2_val as u8);
                     }
                     0x1 => {
                         debug_log!(
@@ -426,7 +426,7 @@ impl Cpu {
                             imm,
                             addr,
                         );
-                        self.memory.write16(addr, rs2_val as u16);
+                        self.bus.write16(addr, rs2_val as u16);
                     }
                     0x2 => {
                         debug_log!(
@@ -438,7 +438,7 @@ impl Cpu {
                             imm,
                             addr,
                         );
-                        self.memory.write32(addr, rs2_val);
+                        self.bus.write32(addr, rs2_val);
                     }
                     _ => debug_log!("Not Implemented"),
                 }
@@ -624,7 +624,7 @@ mod tests {
         let mut cpu = Cpu::new();
         // ADDI x1, x0, 42를 메모리에 로드
         // addi x1, x0, 42 → 0x02A00093
-        cpu.memory.write32(0x80000000, 0x02A00093);
+        cpu.bus.write32(0x80000000, 0x02A00093);
 
         let instruction = cpu.fetch();
         assert_eq!(instruction, 0x02A00093);
@@ -634,7 +634,7 @@ mod tests {
     fn test_addi() {
         let mut cpu = Cpu::new();
         // ADDI x1, x0, 42 → 0x02A00093
-        cpu.memory.write32(0x80000000, 0x02A00093);
+        cpu.bus.write32(0x80000000, 0x02A00093);
         cpu.step();
         assert_eq!(cpu.read_reg(1), 42);
         assert_eq!(cpu.pc, 0x80000004);
@@ -644,7 +644,7 @@ mod tests {
     fn test_addi_negative() {
         let mut cpu = Cpu::new();
         // ADDI x1, x0, -1 → 0xFFF00093
-        cpu.memory.write32(0x80000000, 0xFFF00093);
+        cpu.bus.write32(0x80000000, 0xFFF00093);
         cpu.step();
         assert_eq!(cpu.read_reg(1), 0xFFFFFFFF); // -1 as u32
     }
@@ -655,7 +655,7 @@ mod tests {
         cpu.write_reg(1, 10);
         cpu.write_reg(2, 20);
         // ADD x3, x1, x2 → 0x002081B3
-        cpu.memory.write32(0x80000000, 0x002081B3);
+        cpu.bus.write32(0x80000000, 0x002081B3);
         cpu.step();
         assert_eq!(cpu.read_reg(3), 30);
     }
@@ -666,7 +666,7 @@ mod tests {
         cpu.write_reg(1, 100);
         cpu.write_reg(2, 30);
         // SUB x3, x1, x2 → 0x402081B3
-        cpu.memory.write32(0x80000000, 0x402081B3);
+        cpu.bus.write32(0x80000000, 0x402081B3);
         cpu.step();
         assert_eq!(cpu.read_reg(3), 70);
     }
@@ -678,7 +678,7 @@ mod tests {
         cpu.write_reg(1, 0b1100);
         cpu.write_reg(2, 0b1010);
         // AND x3, x1, x2 → 0x0020F1B3
-        cpu.memory.write32(0x80000000, 0x0020F1B3);
+        cpu.bus.write32(0x80000000, 0x0020F1B3);
         cpu.step();
         assert_eq!(cpu.read_reg(3), 0b1000);
     }
@@ -689,7 +689,7 @@ mod tests {
         cpu.write_reg(1, 0b1100);
         cpu.write_reg(2, 0b1010);
         // OR x3, x1, x2 → 0x0020E1B3
-        cpu.memory.write32(0x80000000, 0x0020E1B3);
+        cpu.bus.write32(0x80000000, 0x0020E1B3);
         cpu.step();
         assert_eq!(cpu.read_reg(3), 0b1110);
     }
@@ -700,7 +700,7 @@ mod tests {
         cpu.write_reg(1, 0x12345678);
         cpu.write_reg(2, 0);
         // OR x3, x1, x2
-        cpu.memory.write32(0x80000000, 0x0020E1B3);
+        cpu.bus.write32(0x80000000, 0x0020E1B3);
         cpu.step();
         assert_eq!(cpu.read_reg(3), 0x12345678); // a | 0 = a
     }
@@ -711,7 +711,7 @@ mod tests {
         cpu.write_reg(1, 0b1100);
         cpu.write_reg(2, 0b1010);
         // XOR x3, x1, x2 → 0x0020C1B3
-        cpu.memory.write32(0x80000000, 0x0020C1B3);
+        cpu.bus.write32(0x80000000, 0x0020C1B3);
         cpu.step();
         assert_eq!(cpu.read_reg(3), 0b0110);
     }
@@ -722,7 +722,7 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.write_reg(1, 0xFF);
         // ANDI x2, x1, 0x0F → 0x00F0F113
-        cpu.memory.write32(0x80000000, 0x00F0F113);
+        cpu.bus.write32(0x80000000, 0x00F0F113);
         cpu.step();
         assert_eq!(cpu.read_reg(2), 0x0F);
     }
@@ -732,7 +732,7 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.write_reg(1, 0xFFFFFFFF);
         // ANDI x2, x1, -1 (0xFFF) → 0xFFF0F113
-        cpu.memory.write32(0x80000000, 0xFFF0F113);
+        cpu.bus.write32(0x80000000, 0xFFF0F113);
         cpu.step();
         // imm = -1 → 0xFFFFFFFF
         // 0xFFFFFFFF & 0xFFFFFFFF = 0xFFFFFFFF
@@ -744,7 +744,7 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.write_reg(1, 0xF0);
         // ORI x2, x1, 0x0F → 0x00F0E113
-        cpu.memory.write32(0x80000000, 0x00F0E113);
+        cpu.bus.write32(0x80000000, 0x00F0E113);
         cpu.step();
         assert_eq!(cpu.read_reg(2), 0xFF);
     }
@@ -754,7 +754,7 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.write_reg(1, 0xFF);
         // XORI x2, x1, 0xFF → 0x0FF0C113
-        cpu.memory.write32(0x80000000, 0x0FF0C113);
+        cpu.bus.write32(0x80000000, 0x0FF0C113);
         cpu.step();
         assert_eq!(cpu.read_reg(2), 0); // 0xFF ^ 0xFF = 0
     }
@@ -764,7 +764,7 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.write_reg(1, 0xFF);
         // XORI x2, x1, -1 (0xFFF) → 0xFFF0C113
-        cpu.memory.write32(0x80000000, 0xFFF0C113);
+        cpu.bus.write32(0x80000000, 0xFFF0C113);
         cpu.step();
         // imm = -1 → 부호확장 → 0xFFFFFFFF
         // 0xFF ^ 0xFFFFFFFF = 0xFFFFFF00
@@ -778,7 +778,7 @@ mod tests {
         cpu.write_reg(2, 4);
         // SLL x3, x1, x2 → 0x002091B3
         // funct7=0000000, rs2=00010, rs1=00001, funct3=001, rd=00011, op=0110011
-        cpu.memory.write32(0x80000000, 0x002091B3);
+        cpu.bus.write32(0x80000000, 0x002091B3);
         cpu.step();
         assert_eq!(cpu.read_reg(3), 16); // 1 << 4 = 16
     }
@@ -790,7 +790,7 @@ mod tests {
         cpu.write_reg(2, 4);
         // SRL x3, x1, x2 → 0x0020D1B3
         // funct7=0000000, rs2=00010, rs1=00001, funct3=101, rd=00011, op=0110011
-        cpu.memory.write32(0x80000000, 0x0020D1B3);
+        cpu.bus.write32(0x80000000, 0x0020D1B3);
         cpu.step();
         assert_eq!(cpu.read_reg(3), 0x08000000); // 논리 시프트, 0 채움
     }
@@ -800,7 +800,7 @@ mod tests {
         cpu.write_reg(1, 0x80000000);
         cpu.write_reg(2, 36); // 36 & 0x1F = 4
         // SRL x3, x1, x2 → 0x0020D1B3
-        cpu.memory.write32(0x80000000, 0x0020D1B3);
+        cpu.bus.write32(0x80000000, 0x0020D1B3);
         cpu.step();
         assert_eq!(cpu.read_reg(3), 0x08000000); // 4비트 시프트
     }
@@ -812,7 +812,7 @@ mod tests {
         cpu.write_reg(2, 4);
         // SRA x3, x1, x2 → 0x4020D1B3
         // funct7=0100000, rs2=00010, rs1=00001, funct3=101, rd=00011, op=0110011
-        cpu.memory.write32(0x80000000, 0x4020D1B3);
+        cpu.bus.write32(0x80000000, 0x4020D1B3);
         cpu.step();
         assert_eq!(cpu.read_reg(3), 0xF8000000); // 산술 시프트, 부호 채움
     }
@@ -824,7 +824,7 @@ mod tests {
         cpu.write_reg(1, 1);
         // SLLI x2, x1, 4 → 0x00409113
         // imm=0000000_00100, rs1=00001, funct3=001, rd=00010, op=0010011
-        cpu.memory.write32(0x80000000, 0x00409113);
+        cpu.bus.write32(0x80000000, 0x00409113);
         cpu.step();
         assert_eq!(cpu.read_reg(2), 16); // 1 << 4 = 16
     }
@@ -835,7 +835,7 @@ mod tests {
         cpu.write_reg(1, 0x80000000);
         // SRLI x2, x1, 4 → 0x0040D113
         // imm=0000000_00100, rs1=00001, funct3=101, rd=00010, op=0010011
-        cpu.memory.write32(0x80000000, 0x0040D113);
+        cpu.bus.write32(0x80000000, 0x0040D113);
         cpu.step();
         assert_eq!(cpu.read_reg(2), 0x08000000); // 논리 시프트
     }
@@ -846,7 +846,7 @@ mod tests {
         cpu.write_reg(1, 0x80000000);
         // SRAI x2, x1, 4 → 0x4040D113
         // imm=0100000_00100, rs1=00001, funct3=101, rd=00010, op=0010011
-        cpu.memory.write32(0x80000000, 0x4040D113);
+        cpu.bus.write32(0x80000000, 0x4040D113);
         cpu.step();
         assert_eq!(cpu.read_reg(2), 0xF8000000); // 산술 시프트
     }
@@ -857,7 +857,7 @@ mod tests {
         cpu.write_reg(1, (-5_i32) as u32); // -5
         cpu.write_reg(2, 5);
         // SLT x3, x1, x2 → 0x0020A1B3
-        cpu.memory.write32(0x80000000, 0x0020A1B3);
+        cpu.bus.write32(0x80000000, 0x0020A1B3);
         cpu.step();
         assert_eq!(cpu.read_reg(3), 1); // -5 < 5 (signed)
     }
@@ -868,7 +868,7 @@ mod tests {
         cpu.write_reg(1, (-5_i32) as u32); // 0xFFFFFFFB
         cpu.write_reg(2, 5);
         // SLTU x3, x1, x2 → 0x0020B1B3
-        cpu.memory.write32(0x80000000, 0x0020B1B3);
+        cpu.bus.write32(0x80000000, 0x0020B1B3);
         cpu.step();
         assert_eq!(cpu.read_reg(3), 0); // 0xFFFFFFFB > 5 (unsigned)
     }
@@ -878,7 +878,7 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.write_reg(1, 5);
         // SLTI x2, x1, 10 → 0x00A0A113
-        cpu.memory.write32(0x80000000, 0x00A0A113);
+        cpu.bus.write32(0x80000000, 0x00A0A113);
         cpu.step();
         assert_eq!(cpu.read_reg(2), 1); // 5 < 10
     }
@@ -888,7 +888,7 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.write_reg(1, 5);
         // SLTIU x2, x1, -1 (0xFFF) → 0xFFF0B113
-        cpu.memory.write32(0x80000000, 0xFFF0B113);
+        cpu.bus.write32(0x80000000, 0xFFF0B113);
         cpu.step();
         assert_eq!(cpu.read_reg(2), 1); // 5 < 0xFFFFFFFF (unsigned)
     }
@@ -898,10 +898,10 @@ mod tests {
         cpu.write_reg(1, 0x80001000); // base address
         cpu.write_reg(2, 0xDEADBEEF); // value to store
         // SW x2, 0(x1) → 0x0020A023
-        cpu.memory.write32(0x80000000, 0x0020A023);
+        cpu.bus.write32(0x80000000, 0x0020A023);
         cpu.step();
         // LW x3, 0(x1) → 0x0000A183
-        cpu.memory.write32(0x80000004, 0x0000A183);
+        cpu.bus.write32(0x80000004, 0x0000A183);
         cpu.step();
         assert_eq!(cpu.read_reg(3), 0xDEADBEEF);
     }
@@ -910,9 +910,9 @@ mod tests {
     fn test_lb_sign_extend() {
         let mut cpu = Cpu::new();
         cpu.write_reg(1, 0x80001000);
-        cpu.memory.write8(0x80001000, 0x80); // -128
+        cpu.bus.write8(0x80001000, 0x80); // -128
         // LB x2, 0(x1) → 0x00008103
-        cpu.memory.write32(0x80000000, 0x00008103);
+        cpu.bus.write32(0x80000000, 0x00008103);
         cpu.step();
         assert_eq!(cpu.read_reg(2), 0xFFFFFF80); // sign extended
     }
@@ -921,9 +921,9 @@ mod tests {
     fn test_lbu_zero_extend() {
         let mut cpu = Cpu::new();
         cpu.write_reg(1, 0x80001000);
-        cpu.memory.write8(0x80001000, 0x80);
+        cpu.bus.write8(0x80001000, 0x80);
         // LBU x2, 0(x1) → 0x0000C103
-        cpu.memory.write32(0x80000000, 0x0000C103);
+        cpu.bus.write32(0x80000000, 0x0000C103);
         cpu.step();
         assert_eq!(cpu.read_reg(2), 0x00000080); // zero extended
     }
@@ -931,9 +931,9 @@ mod tests {
     fn test_lh_sign_extend() {
         let mut cpu = Cpu::new();
         cpu.write_reg(1, 0x80001000);
-        cpu.memory.write16(0x80001000, 0x8000); // -32768
+        cpu.bus.write16(0x80001000, 0x8000); // -32768
         // LH x2, 0(x1) → 0x00009103
-        cpu.memory.write32(0x80000000, 0x00009103);
+        cpu.bus.write32(0x80000000, 0x00009103);
         cpu.step();
         assert_eq!(cpu.read_reg(2), 0xFFFF8000); // sign extended
     }
@@ -942,9 +942,9 @@ mod tests {
     fn test_lhu_zero_extend() {
         let mut cpu = Cpu::new();
         cpu.write_reg(1, 0x80001000);
-        cpu.memory.write16(0x80001000, 0x8000);
+        cpu.bus.write16(0x80001000, 0x8000);
         // LHU x2, 0(x1) → 0x0000D103
-        cpu.memory.write32(0x80000000, 0x0000D103);
+        cpu.bus.write32(0x80000000, 0x0000D103);
         cpu.step();
         assert_eq!(cpu.read_reg(2), 0x00008000); // zero extended
     }
@@ -955,9 +955,9 @@ mod tests {
         cpu.write_reg(1, 0x80001000);
         cpu.write_reg(2, 0xDEADBEEF);
         // SB x2, 0(x1) → 0x00208023
-        cpu.memory.write32(0x80000000, 0x00208023);
+        cpu.bus.write32(0x80000000, 0x00208023);
         cpu.step();
-        assert_eq!(cpu.memory.read8(0x80001000), 0xEF); // 하위 8비트만
+        assert_eq!(cpu.bus.read8(0x80001000), 0xEF); // 하위 8비트만
     }
 
     #[test]
@@ -966,9 +966,9 @@ mod tests {
         cpu.write_reg(1, 0x80001000);
         cpu.write_reg(2, 0xDEADBEEF);
         // SH x2, 0(x1) → 0x00209023
-        cpu.memory.write32(0x80000000, 0x00209023);
+        cpu.bus.write32(0x80000000, 0x00209023);
         cpu.step();
-        assert_eq!(cpu.memory.read16(0x80001000), 0xBEEF); // 하위 16비트만
+        assert_eq!(cpu.bus.read16(0x80001000), 0xBEEF); // 하위 16비트만
     }
 
     // === Branch ===
@@ -978,7 +978,7 @@ mod tests {
         cpu.write_reg(1, 100);
         cpu.write_reg(2, 100);
         // BEQ x1, x2, 8 → 0x00208463
-        cpu.memory.write32(0x80000000, 0x00208463);
+        cpu.bus.write32(0x80000000, 0x00208463);
         cpu.step();
         assert_eq!(cpu.pc, 0x80000008); // 분기 성공
     }
@@ -989,7 +989,7 @@ mod tests {
         cpu.write_reg(1, 100);
         cpu.write_reg(2, 200);
         // BEQ x1, x2, 8 → 0x00208463
-        cpu.memory.write32(0x80000000, 0x00208463);
+        cpu.bus.write32(0x80000000, 0x00208463);
         cpu.step();
         assert_eq!(cpu.pc, 0x80000004); // 분기 실패, 다음 명령어
     }
@@ -1000,7 +1000,7 @@ mod tests {
         cpu.write_reg(1, 100);
         cpu.write_reg(2, 200);
         // BNE x1, x2, 8 → 0x00209463
-        cpu.memory.write32(0x80000000, 0x00209463);
+        cpu.bus.write32(0x80000000, 0x00209463);
         cpu.step();
         assert_eq!(cpu.pc, 0x80000008);
     }
@@ -1011,7 +1011,7 @@ mod tests {
         cpu.write_reg(1, (-5_i32) as u32); // -5
         cpu.write_reg(2, 5);
         // BLT x1, x2, 8 → 0x0020C463
-        cpu.memory.write32(0x80000000, 0x0020C463);
+        cpu.bus.write32(0x80000000, 0x0020C463);
         cpu.step();
         assert_eq!(cpu.pc, 0x80000008); // -5 < 5 (signed)
     }
@@ -1022,7 +1022,7 @@ mod tests {
         cpu.write_reg(1, 5);
         cpu.write_reg(2, (-5_i32) as u32);
         // BGE x1, x2, 8 → 0x0020D463
-        cpu.memory.write32(0x80000000, 0x0020D463);
+        cpu.bus.write32(0x80000000, 0x0020D463);
         cpu.step();
         assert_eq!(cpu.pc, 0x80000008); // 5 >= -5 (signed)
     }
@@ -1033,7 +1033,7 @@ mod tests {
         cpu.write_reg(1, 5);
         cpu.write_reg(2, (-1_i32) as u32); // 0xFFFFFFFF
         // BLTU x1, x2, 8 → 0x0020E463
-        cpu.memory.write32(0x80000000, 0x0020E463);
+        cpu.bus.write32(0x80000000, 0x0020E463);
         cpu.step();
         assert_eq!(cpu.pc, 0x80000008); // 5 < 0xFFFFFFFF (unsigned)
     }
@@ -1044,7 +1044,7 @@ mod tests {
         cpu.write_reg(1, (-1_i32) as u32); // 0xFFFFFFFF
         cpu.write_reg(2, 5);
         // BGEU x1, x2, 8 → 0x0020F463
-        cpu.memory.write32(0x80000000, 0x0020F463);
+        cpu.bus.write32(0x80000000, 0x0020F463);
         cpu.step();
         assert_eq!(cpu.pc, 0x80000008); // 0xFFFFFFFF >= 5 (unsigned)
     }
@@ -1056,7 +1056,7 @@ mod tests {
         cpu.write_reg(1, 1);
         cpu.write_reg(2, 1);
         // BEQ x1, x2, -8 → 0xFE208CE3
-        cpu.memory.write32(0x80000008, 0xFE208CE3);
+        cpu.bus.write32(0x80000008, 0xFE208CE3);
         cpu.step();
         assert_eq!(cpu.pc, 0x80000000); // 뒤로 분기
     }
@@ -1066,7 +1066,7 @@ mod tests {
     fn test_jal() {
         let mut cpu = Cpu::new();
         // JAL x1, 8 → 0x008000EF
-        cpu.memory.write32(0x80000000, 0x008000EF);
+        cpu.bus.write32(0x80000000, 0x008000EF);
         cpu.step();
         assert_eq!(cpu.read_reg(1), 0x80000004); // 복귀 주소
         assert_eq!(cpu.pc, 0x80000008); // PC + 8
@@ -1077,7 +1077,7 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.pc = 0x80000008;
         // JAL x1, -4 → 0xFFDFF0EF
-        cpu.memory.write32(0x80000008, 0xFFDFF0EF);
+        cpu.bus.write32(0x80000008, 0xFFDFF0EF);
         cpu.step();
         assert_eq!(cpu.read_reg(1), 0x8000000C); // 복귀 주소
         assert_eq!(cpu.pc, 0x80000004); // 뒤로 점프
@@ -1088,7 +1088,7 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.write_reg(2, 0x80001000);
         // JALR x1, x2, 0 → 0x000100E7
-        cpu.memory.write32(0x80000000, 0x000100E7);
+        cpu.bus.write32(0x80000000, 0x000100E7);
         cpu.step();
         assert_eq!(cpu.read_reg(1), 0x80000004); // 복귀 주소
         assert_eq!(cpu.pc, 0x80001000); // x2 주소로 점프
@@ -1099,7 +1099,7 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.write_reg(2, 0x80001000);
         // JALR x1, x2, 4 → 0x004100E7
-        cpu.memory.write32(0x80000000, 0x004100E7);
+        cpu.bus.write32(0x80000000, 0x004100E7);
         cpu.step();
         assert_eq!(cpu.read_reg(1), 0x80000004);
         assert_eq!(cpu.pc, 0x80001004); // x2 + 4
@@ -1110,7 +1110,7 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.write_reg(2, 0x80001001); // 홀수 주소
         // JALR x1, x2, 0 → 0x000100E7
-        cpu.memory.write32(0x80000000, 0x000100E7);
+        cpu.bus.write32(0x80000000, 0x000100E7);
         cpu.step();
         assert_eq!(cpu.pc, 0x80001000); // LSB 클리어됨
     }
@@ -1120,7 +1120,7 @@ mod tests {
     fn test_lui() {
         let mut cpu = Cpu::new();
         // LUI x1, 0x12345 → 0x123450B7
-        cpu.memory.write32(0x80000000, 0x123450B7);
+        cpu.bus.write32(0x80000000, 0x123450B7);
         cpu.step();
         assert_eq!(cpu.read_reg(1), 0x12345000);
     }
@@ -1129,7 +1129,7 @@ mod tests {
     fn test_lui_high_bit() {
         let mut cpu = Cpu::new();
         // LUI x1, 0x80000 → 0x800000B7
-        cpu.memory.write32(0x80000000, 0x800000B7);
+        cpu.bus.write32(0x80000000, 0x800000B7);
         cpu.step();
         assert_eq!(cpu.read_reg(1), 0x80000000);
     }
@@ -1138,7 +1138,7 @@ mod tests {
     fn test_auipc() {
         let mut cpu = Cpu::new();
         // AUIPC x1, 0x12345 → 0x12345097
-        cpu.memory.write32(0x80000000, 0x12345097);
+        cpu.bus.write32(0x80000000, 0x12345097);
         cpu.step();
         assert_eq!(cpu.read_reg(1), 0x80000000 + 0x12345000);
     }
@@ -1148,7 +1148,7 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.pc = 0x80001000;
         // AUIPC x1, 0x1 → 0x00001097
-        cpu.memory.write32(0x80001000, 0x00001097);
+        cpu.bus.write32(0x80001000, 0x00001097);
         cpu.step();
         assert_eq!(cpu.read_reg(1), 0x80001000 + 0x1000);
     }
@@ -1158,7 +1158,7 @@ mod tests {
     fn test_ecall() {
         let mut cpu = Cpu::new();
         // ECALL → 0x00000073
-        cpu.memory.write32(0x80000000, 0x00000073);
+        cpu.bus.write32(0x80000000, 0x00000073);
         cpu.step();
         assert!(cpu.halted);
     }
@@ -1167,7 +1167,7 @@ mod tests {
     fn test_ebreak() {
         let mut cpu = Cpu::new();
         // EBREAK → 0x00100073
-        cpu.memory.write32(0x80000000, 0x00100073);
+        cpu.bus.write32(0x80000000, 0x00100073);
         cpu.step();
         assert!(cpu.halted);
     }
@@ -1177,7 +1177,7 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.write_reg(10, 0); // a0 = 0 (테스트 통과)
         // ECALL → 0x00000073
-        cpu.memory.write32(0x80000000, 0x00000073);
+        cpu.bus.write32(0x80000000, 0x00000073);
         cpu.step();
         assert!(cpu.halted);
         assert_eq!(cpu.read_reg(10), 0); // a0 확인
