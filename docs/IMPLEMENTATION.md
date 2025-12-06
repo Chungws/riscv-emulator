@@ -348,11 +348,11 @@ fn test_sltu_unsigned() {
 ```
 
 ### 체크리스트
-- [ ] SLT (funct3=010, funct7=0) - 부호 있는 비교
-- [ ] SLTU (funct3=011, funct7=0) - 부호 없는 비교
-- [ ] SLTI (funct3=010) - 부호 있는 즉시값 비교
-- [ ] SLTIU (funct3=011) - 부호 없는 즉시값 비교
-- [ ] 테스트 통과
+- [x] SLT (funct3=010, funct7=0) - 부호 있는 비교
+- [x] SLTU (funct3=011, funct7=0) - 부호 없는 비교
+- [x] SLTI (funct3=010) - 부호 있는 즉시값 비교
+- [x] SLTIU (funct3=011) - 부호 없는 즉시값 비교
+- [x] 테스트 통과
 
 ---
 
