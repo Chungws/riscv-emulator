@@ -70,11 +70,11 @@ pub use cpu::Cpu;
 ```
 
 ### 체크리스트
-- [ ] `src/devices/` 폴더 생성
-- [ ] `memory.rs` 이동
-- [ ] `devices/mod.rs` 작성
-- [ ] `lib.rs` 수정
-- [ ] `cargo test` 통과 확인
+- [x] `src/devices/` 폴더 생성
+- [x] `memory.rs` 이동
+- [x] `devices/mod.rs` 작성
+- [x] `lib.rs` 수정
+- [x] `cargo test` 통과 확인
 
 ---
 
