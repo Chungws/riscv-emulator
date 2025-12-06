@@ -5,6 +5,8 @@ const OP: u32 = 0x33;
 const LOAD: u32 = 0x03;
 const STORE: u32 = 0x23;
 const BRANCH: u32 = 0x63;
+const JAL: u32 = 0x6F;
+const JALR: u32 = 0x67;
 
 pub struct Cpu {
     pub regs: [u32; 32],
@@ -511,6 +513,34 @@ impl Cpu {
                     return;
                 }
             }
+            JAL => {
+                debug_log!("JAL");
+                let rd = decoder::rd(inst);
+                let imm = decoder::imm_j(inst);
+                debug_log!("JAL rd={} imm={}, pc={}", rd, imm, self.pc);
+                self.write_reg(rd, self.pc + 4);
+                self.pc = (self.pc as i32).wrapping_add(imm) as u32;
+                return;
+            }
+            JALR => {
+                debug_log!("JALR");
+                let rd = decoder::rd(inst);
+                let rs1 = decoder::rs1(inst);
+                let rs1_val = self.read_reg(rs1);
+                let imm = decoder::imm_i(inst);
+
+                debug_log!(
+                    "JALR rd={}, rs1={}, rs1_val={}, imm={}, pc={}",
+                    rd,
+                    rs1,
+                    rs1_val,
+                    imm,
+                    self.pc
+                );
+                self.write_reg(rd, self.pc + 4);
+                self.pc = ((rs1_val as i32).wrapping_add(imm) as u32) & 0xFFFFFFFE;
+                return;
+            }
             _ => panic!("Not Supported Opcode"),
         }
         self.pc += 4
@@ -977,5 +1007,59 @@ mod tests {
         cpu.memory.write32(0x80000008, 0xFE208CE3);
         cpu.step();
         assert_eq!(cpu.pc, 0x80000000); // 뒤로 분기
+    }
+
+    // === Jump ===
+    #[test]
+    fn test_jal() {
+        let mut cpu = Cpu::new();
+        // JAL x1, 8 → 0x008000EF
+        cpu.memory.write32(0x80000000, 0x008000EF);
+        cpu.step();
+        assert_eq!(cpu.read_reg(1), 0x80000004); // 복귀 주소
+        assert_eq!(cpu.pc, 0x80000008); // PC + 8
+    }
+
+    #[test]
+    fn test_jal_backward() {
+        let mut cpu = Cpu::new();
+        cpu.pc = 0x80000008;
+        // JAL x1, -4 → 0xFFDFF0EF
+        cpu.memory.write32(0x80000008, 0xFFDFF0EF);
+        cpu.step();
+        assert_eq!(cpu.read_reg(1), 0x8000000C); // 복귀 주소
+        assert_eq!(cpu.pc, 0x80000004); // 뒤로 점프
+    }
+
+    #[test]
+    fn test_jalr() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(2, 0x80001000);
+        // JALR x1, x2, 0 → 0x000100E7
+        cpu.memory.write32(0x80000000, 0x000100E7);
+        cpu.step();
+        assert_eq!(cpu.read_reg(1), 0x80000004); // 복귀 주소
+        assert_eq!(cpu.pc, 0x80001000); // x2 주소로 점프
+    }
+
+    #[test]
+    fn test_jalr_with_offset() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(2, 0x80001000);
+        // JALR x1, x2, 4 → 0x004100E7
+        cpu.memory.write32(0x80000000, 0x004100E7);
+        cpu.step();
+        assert_eq!(cpu.read_reg(1), 0x80000004);
+        assert_eq!(cpu.pc, 0x80001004); // x2 + 4
+    }
+
+    #[test]
+    fn test_jalr_clears_lsb() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(2, 0x80001001); // 홀수 주소
+        // JALR x1, x2, 0 → 0x000100E7
+        cpu.memory.write32(0x80000000, 0x000100E7);
+        cpu.step();
+        assert_eq!(cpu.pc, 0x80001000); // LSB 클리어됨
     }
 }
