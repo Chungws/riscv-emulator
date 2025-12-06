@@ -39,7 +39,7 @@ cargo test
 - [x] Step 9: 로드/스토어 (LW, SW...)
 - [x] Step 10: 분기 (BEQ, BNE...)
 - [x] Step 11: 점프 (JAL, JALR)
-- [ ] Step 12: 상위 즉시값 (LUI, AUIPC)
+- [x] Step 12: 상위 즉시값 (LUI, AUIPC)
 - [ ] Step 13: 시스템 (ECALL, EBREAK)
 - [ ] Step 14: 통합 테스트
 
