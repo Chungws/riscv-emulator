@@ -55,6 +55,10 @@ pub fn imm_j(inst: u32) -> i32 {
     ((imm as i32) << 11) >> 11
 }
 
+pub fn csr_addr(inst: u32) -> u16 {
+    ((inst >> 20) & 0xFFF) as u16
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -138,5 +142,20 @@ mod tests {
         // JAL x1, -4 → 0xFFDFF0EF
         let inst = 0xFFDFF0EF;
         assert_eq!(imm_j(inst), -4);
+    }
+
+    // === CSR address ===
+    #[test]
+    fn test_csr_addr_mstatus() {
+        // CSRRW x1, mstatus, x2 → csr=0x300
+        let inst = 0x300110F3;
+        assert_eq!(csr_addr(inst), 0x300);
+    }
+
+    #[test]
+    fn test_csr_addr_mhartid() {
+        // CSRRS x1, mhartid, x0 → csr=0xF14
+        let inst = 0xF14020F3;
+        assert_eq!(csr_addr(inst), 0xF14);
     }
 }

@@ -544,17 +544,105 @@ impl Cpu {
 
     fn execute_system(&mut self, inst: u32) {
         debug_log!("SYSTEM");
-        let imm = decoder::imm_i(inst);
-        match imm {
-            0x000 => {
-                debug_log!("ECALL");
-                self.halted = true;
+        let funct3 = decoder::funct3(inst);
+        let rd = decoder::rd(inst);
+        let rs1 = decoder::rs1(inst);
+        let rs1_val = self.read_reg(rs1);
+        let csr_addr = decoder::csr_addr(inst);
+
+        match funct3 {
+            0x0 => match csr_addr {
+                0x000 => {
+                    debug_log!("ECALL");
+                    self.halted = true;
+                }
+                0x001 => {
+                    debug_log!("EBREAK");
+                    self.halted = true;
+                }
+                _ => panic!("Unknown SYSTEM csr_addr: {:#x}", csr_addr),
+            },
+            0x1 => {
+                debug_log!(
+                    "CSRRW rd={}, rs1={}, rs1_val={}, csr_addr={}",
+                    rd,
+                    rs1,
+                    rs1_val,
+                    csr_addr
+                );
+                let old = self.csr.read(csr_addr);
+                self.csr.write(csr_addr, rs1_val);
+                self.write_reg(rd, old);
             }
-            0x001 => {
-                debug_log!("EBREAK");
-                self.halted = true;
+            0x2 => {
+                debug_log!(
+                    "CSRRS rd={}, rs1={}, rs1_val={}, csr_addr={}",
+                    rd,
+                    rs1,
+                    rs1_val,
+                    csr_addr
+                );
+                let old = self.csr.read(csr_addr);
+                if rs1_val != 0x0 {
+                    self.csr.write(csr_addr, old | rs1_val);
+                }
+                self.write_reg(rd, old);
             }
-            _ => panic!("Unknown SYSTEM imm: {:#x}", imm),
+            0x3 => {
+                debug_log!(
+                    "CSRRC rd={}, rs1={}, rs1_val={}, csr_addr={}",
+                    rd,
+                    rs1,
+                    rs1_val,
+                    csr_addr
+                );
+                let old = self.csr.read(csr_addr);
+                if rs1_val != 0x0 {
+                    self.csr.write(csr_addr, old & !rs1_val);
+                }
+                self.write_reg(rd, old);
+            }
+            0x5 => {
+                debug_log!(
+                    "CSRRWI rd={}, rs1={}, rs1_val={}, csr_addr={}",
+                    rd,
+                    rs1,
+                    rs1_val,
+                    csr_addr
+                );
+                let old = self.csr.read(csr_addr);
+                self.csr.write(csr_addr, rs1 as u64);
+                self.write_reg(rd, old);
+            }
+            0x6 => {
+                debug_log!(
+                    "CSRRSI rd={}, rs1={}, rs1_val={}, csr_addr={}",
+                    rd,
+                    rs1,
+                    rs1_val,
+                    csr_addr
+                );
+                let old = self.csr.read(csr_addr);
+                if rs1 != 0x0 {
+                    self.csr.write(csr_addr, old | (rs1 as u64));
+                }
+                self.write_reg(rd, old);
+            }
+            0x7 => {
+                debug_log!(
+                    "CSRRCI rd={}, rs1={}, rs1_val={}, csr_addr={}",
+                    rd,
+                    rs1,
+                    rs1_val,
+                    csr_addr
+                );
+                let old = self.csr.read(csr_addr);
+                if rs1 != 0x0 {
+                    self.csr.write(csr_addr, old & !(rs1 as u64));
+                }
+                self.write_reg(rd, old);
+            }
+            _ => panic!("Unknown SYSTEM csr_addr: {:#x}", csr_addr),
         }
     }
 }
@@ -1295,5 +1383,132 @@ mod tests {
         cpu.bus.write32(0x80000000, 0x4020D1BB);
         cpu.step();
         assert_eq!(cpu.read_reg(3), 0x04000000);
+    }
+
+    // === CSR Instructions ===
+
+    #[test]
+    fn test_csrrw() {
+        // CSRRW x1, 0x300, x2
+        let mut cpu = Cpu::new();
+        cpu.csr.write(0x300, 0xAAAA);
+        cpu.write_reg(2, 0xBBBB);
+        cpu.bus.write32(0x80000000, 0x300110F3);
+        cpu.step();
+        assert_eq!(cpu.read_reg(1), 0xAAAA); // rd = old CSR
+        assert_eq!(cpu.csr.read(0x300), 0xBBBB); // CSR = rs1
+    }
+
+    #[test]
+    fn test_csrrw_rd_x0() {
+        // CSRRW x0, 0x300, x2 (rd=x0, just write)
+        let mut cpu = Cpu::new();
+        cpu.csr.write(0x300, 0xAAAA);
+        cpu.write_reg(2, 0xBBBB);
+        cpu.bus.write32(0x80000000, 0x30011073);
+        cpu.step();
+        assert_eq!(cpu.read_reg(0), 0); // x0 always 0
+        assert_eq!(cpu.csr.read(0x300), 0xBBBB); // CSR = rs1
+    }
+
+    #[test]
+    fn test_csrrs() {
+        // CSRRS x1, 0x300, x2
+        let mut cpu = Cpu::new();
+        cpu.csr.write(0x300, 0b1100);
+        cpu.write_reg(2, 0b0011);
+        cpu.bus.write32(0x80000000, 0x300120F3);
+        cpu.step();
+        assert_eq!(cpu.read_reg(1), 0b1100); // rd = old CSR
+        assert_eq!(cpu.csr.read(0x300), 0b1111); // CSR = CSR | rs1
+    }
+
+    #[test]
+    fn test_csrrs_rs1_x0() {
+        // CSRRS x1, 0x300, x0 (read only, no modify)
+        let mut cpu = Cpu::new();
+        cpu.csr.write(0x300, 0xAAAA);
+        cpu.bus.write32(0x80000000, 0x300020F3);
+        cpu.step();
+        assert_eq!(cpu.read_reg(1), 0xAAAA); // rd = CSR
+        assert_eq!(cpu.csr.read(0x300), 0xAAAA); // CSR unchanged
+    }
+
+    #[test]
+    fn test_csrrc() {
+        // CSRRC x1, 0x300, x2
+        let mut cpu = Cpu::new();
+        cpu.csr.write(0x300, 0b1111);
+        cpu.write_reg(2, 0b0011);
+        cpu.bus.write32(0x80000000, 0x300130F3);
+        cpu.step();
+        assert_eq!(cpu.read_reg(1), 0b1111); // rd = old CSR
+        assert_eq!(cpu.csr.read(0x300), 0b1100); // CSR = CSR & ~rs1
+    }
+
+    #[test]
+    fn test_csrrc_rs1_x0() {
+        // CSRRC x1, 0x300, x0 (read only, no modify)
+        let mut cpu = Cpu::new();
+        cpu.csr.write(0x300, 0xAAAA);
+        cpu.bus.write32(0x80000000, 0x300030F3);
+        cpu.step();
+        assert_eq!(cpu.read_reg(1), 0xAAAA); // rd = CSR
+        assert_eq!(cpu.csr.read(0x300), 0xAAAA); // CSR unchanged
+    }
+
+    #[test]
+    fn test_csrrwi() {
+        // CSRRWI x1, 0x300, 0x1F (zimm=31)
+        let mut cpu = Cpu::new();
+        cpu.csr.write(0x300, 0xAAAA);
+        cpu.bus.write32(0x80000000, 0x300FD0F3);
+        cpu.step();
+        assert_eq!(cpu.read_reg(1), 0xAAAA); // rd = old CSR
+        assert_eq!(cpu.csr.read(0x300), 0x1F); // CSR = zimm
+    }
+
+    #[test]
+    fn test_csrrsi() {
+        // CSRRSI x1, 0x300, 0x03 (zimm=3)
+        let mut cpu = Cpu::new();
+        cpu.csr.write(0x300, 0b1100);
+        cpu.bus.write32(0x80000000, 0x3001E0F3);
+        cpu.step();
+        assert_eq!(cpu.read_reg(1), 0b1100); // rd = old CSR
+        assert_eq!(cpu.csr.read(0x300), 0b1111); // CSR = CSR | zimm
+    }
+
+    #[test]
+    fn test_csrrsi_zimm_0() {
+        // CSRRSI x1, 0x300, 0 (read only)
+        let mut cpu = Cpu::new();
+        cpu.csr.write(0x300, 0xAAAA);
+        cpu.bus.write32(0x80000000, 0x300060F3);
+        cpu.step();
+        assert_eq!(cpu.read_reg(1), 0xAAAA); // rd = CSR
+        assert_eq!(cpu.csr.read(0x300), 0xAAAA); // CSR unchanged
+    }
+
+    #[test]
+    fn test_csrrci() {
+        // CSRRCI x1, 0x300, 0x03 (zimm=3)
+        let mut cpu = Cpu::new();
+        cpu.csr.write(0x300, 0b1111);
+        cpu.bus.write32(0x80000000, 0x3001F0F3);
+        cpu.step();
+        assert_eq!(cpu.read_reg(1), 0b1111); // rd = old CSR
+        assert_eq!(cpu.csr.read(0x300), 0b1100); // CSR = CSR & ~zimm
+    }
+
+    #[test]
+    fn test_csrrci_zimm_0() {
+        // CSRRCI x1, 0x300, 0 (read only)
+        let mut cpu = Cpu::new();
+        cpu.csr.write(0x300, 0xAAAA);
+        cpu.bus.write32(0x80000000, 0x300070F3);
+        cpu.step();
+        assert_eq!(cpu.read_reg(1), 0xAAAA); // rd = CSR
+        assert_eq!(cpu.csr.read(0x300), 0xAAAA); // CSR unchanged
     }
 }
