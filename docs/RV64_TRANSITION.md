@@ -83,12 +83,12 @@ pub const DRAM_BASE: u64 = 0x80000000;
 ```
 
 **체크리스트:**
-- [ ] `cpu.rs`: regs `[u32; 32]` → `[u64; 32]`
-- [ ] `cpu.rs`: pc `u32` → `u64`
-- [ ] `devices/memory.rs`: DRAM_BASE, DRAM_SIZE `u32` → `u64`
-- [ ] `devices/uart.rs`: UART_BASE, UART_SIZE `u32` → `u64`
-- [ ] `bus.rs`: 주소 파라미터 `u32` → `u64`
-- [ ] `cargo build` (많은 에러 예상)
+- [x] `cpu.rs`: regs `[u32; 32]` → `[u64; 32]`
+- [x] `cpu.rs`: pc `u32` → `u64`
+- [x] `devices/memory.rs`: DRAM_BASE, DRAM_SIZE `u32` → `u64`
+- [x] `devices/uart.rs`: UART_BASE, UART_SIZE `u32` → `u64`
+- [x] `bus.rs`: 주소 파라미터 `u32` → `u64`
+- [x] `cargo build` (많은 에러 예상)
 
 ---
 
@@ -128,10 +128,10 @@ pub fn write64(&mut self, addr: u64, value: u64) { ... }
 ```
 
 **체크리스트:**
-- [ ] `memory.rs`: read64, write64 추가
-- [ ] `bus.rs`: read64, write64 추가
-- [ ] 기존 read8/16/32, write8/16/32의 addr 타입 변경
-- [ ] `cargo build` 확인
+- [x] `memory.rs`: read64, write64 추가
+- [x] `bus.rs`: read64, write64 추가
+- [x] 기존 read8/16/32, write8/16/32의 addr 타입 변경
+- [x] `cargo build` 확인
 
 ---
 
@@ -171,11 +171,11 @@ let val = self.bus.read32(addr) as i32 as i64 as u64;
 ```
 
 **체크리스트:**
-- [ ] 모든 즉시값 부호 확장 검토
-- [ ] 시프트 연산 shamt 비트 수정 (5→6비트)
-- [ ] LW: 32비트 → 64비트 부호 확장
-- [ ] LH/LB: 부호 확장 검토
-- [ ] `cargo build` 확인
+- [x] 모든 즉시값 부호 확장 검토
+- [x] 시프트 연산 shamt 비트 수정 (5→6비트)
+- [x] LW: 32비트 → 64비트 부호 확장
+- [x] LH/LB: 부호 확장 검토
+- [x] `cargo build` 확인
 
 ---
 
@@ -209,11 +209,11 @@ LWU: funct3 = 110, opcode = 0000011 (LOAD)
 ```
 
 **체크리스트:**
-- [ ] LD 구현
-- [ ] SD 구현
-- [ ] LWU 구현
-- [ ] 테스트 코드 작성
-- [ ] `cargo test` 확인
+- [x] LD 구현
+- [x] SD 구현
+- [x] LWU 구현
+- [x] 테스트 코드 작성
+- [x] `cargo test` 확인
 
 ---
 
@@ -261,14 +261,14 @@ self.write_reg(rd, result as i64 as u64);
 ```
 
 **체크리스트:**
-- [ ] OP_IMM_32 (0x1B) 상수 추가
-- [ ] OP_32 (0x3B) 상수 추가
-- [ ] ADDIW 구현
-- [ ] SLLIW, SRLIW, SRAIW 구현
-- [ ] ADDW, SUBW 구현
-- [ ] SLLW, SRLW, SRAW 구현
-- [ ] 테스트 코드 작성
-- [ ] `cargo test` 확인
+- [x] OP_IMM_32 (0x1B) 상수 추가
+- [x] OP_32 (0x3B) 상수 추가
+- [x] ADDIW 구현
+- [x] SLLIW, SRLIW, SRAIW 구현
+- [x] ADDW, SUBW 구현
+- [x] SLLW, SRLW, SRAW 구현
+- [x] 테스트 코드 작성
+- [x] `cargo test` 확인
 
 ---
 
@@ -286,10 +286,10 @@ assert_eq!(cpu.read_reg(1), 0xFFFFFFFFFFFFFFFF);  // -1 as u64
 ```
 
 **체크리스트:**
-- [ ] 모든 테스트의 예상값 수정
-- [ ] 부호 확장 관련 테스트 추가
-- [ ] 64비트 전용 명령어 테스트 추가
-- [ ] `cargo test` 전체 통과
+- [x] 모든 테스트의 예상값 수정
+- [x] 부호 확장 관련 테스트 추가
+- [x] 64비트 전용 명령어 테스트 추가
+- [x] `cargo test` 전체 통과
 
 ---
 

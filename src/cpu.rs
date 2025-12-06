@@ -3,7 +3,9 @@ use core::panic;
 use crate::{Bus, debug_log, decoder, devices::DRAM_BASE};
 
 const OP_IMM: u32 = 0x13;
+const OP_IMM_32: u32 = 0x1B;
 const OP: u32 = 0x33;
+const OP_32: u32 = 0x3B;
 const LOAD: u32 = 0x03;
 const STORE: u32 = 0x23;
 const BRANCH: u32 = 0x63;
@@ -183,6 +185,72 @@ impl Cpu {
                     _ => debug_log!("Not Implemented"),
                 }
             }
+            OP_IMM_32 => {
+                debug_log!("OP_IMM_32");
+                let funct3 = decoder::funct3(inst);
+                let rd = decoder::rd(inst);
+                let rs1 = decoder::rs1(inst);
+                let rs1_val = self.read_reg(rs1);
+                let imm = decoder::imm_i(inst);
+
+                match funct3 {
+                    0x0 => {
+                        debug_log!(
+                            "ADDIW rd={}, rs1={}, rs1_val={}, imm={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            imm
+                        );
+                        let result = (rs1_val as i32).wrapping_add(imm as i32);
+                        self.write_reg(rd, result as i64 as u64);
+                    }
+                    0x1 => {
+                        let shamt = (imm as u64) & 0x3F;
+                        debug_log!(
+                            "SLLIW rd={}, rs1={}, rs1_val={}, imm={}, shamt={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            imm,
+                            shamt
+                        );
+                        self.write_reg(rd, ((rs1_val as u32) << shamt) as i32 as i64 as u64);
+                    }
+                    0x5 => {
+                        let funct7 = ((imm as u64) >> 5) & 0x7F;
+                        let shamt = (imm as u64) & 0x3F;
+                        match funct7 {
+                            0x00 => {
+                                debug_log!(
+                                    "SRLIW rd={}, rs1={}, rs1_val={}, imm={}, shamt={}, funct7={}",
+                                    rd,
+                                    rs1,
+                                    rs1_val,
+                                    imm,
+                                    shamt,
+                                    funct7
+                                );
+                                self.write_reg(rd, ((rs1_val as u32) >> shamt) as u64);
+                            }
+                            0x20 => {
+                                debug_log!(
+                                    "SRAIW rd={}, rs1={}, rs1_val={}, imm={}, shamt={}, funct7={}",
+                                    rd,
+                                    rs1,
+                                    rs1_val,
+                                    imm,
+                                    shamt,
+                                    funct7
+                                );
+                                self.write_reg(rd, ((rs1_val as i32) >> shamt) as i64 as u64);
+                            }
+                            _ => panic!("Not Implemented"),
+                        }
+                    }
+                    _ => debug_log!("Not Implemented"),
+                }
+            }
             OP => {
                 debug_log!("OP");
                 let funct3 = decoder::funct3(inst);
@@ -315,6 +383,83 @@ impl Cpu {
                             rs2_val
                         );
                         self.write_reg(rd, rs1_val & rs2_val);
+                    }
+                    _ => debug_log!("Not Implemented"),
+                }
+            }
+            OP_32 => {
+                debug_log!("OP_32");
+                let funct3 = decoder::funct3(inst);
+                let funct7 = decoder::funct7(inst);
+                let rd = decoder::rd(inst);
+                let rs1 = decoder::rs1(inst);
+                let rs1_val = self.read_reg(rs1);
+                let rs2 = decoder::rs2(inst);
+                let rs2_val = self.read_reg(rs2);
+
+                match (funct3, funct7) {
+                    (0x0, 0x0) => {
+                        debug_log!(
+                            "ADDW rd={}, rs1={}, rs1_val={}, rs2={}, rs2_val={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            rs2,
+                            rs2_val
+                        );
+                        let result = (rs1_val as i32).wrapping_add(rs2_val as i32);
+                        self.write_reg(rd, result as i64 as u64);
+                    }
+                    (0x0, 0x20) => {
+                        debug_log!(
+                            "SUBW rd={}, rs1={}, rs1_val={}, rs2={}, rs2_val={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            rs2,
+                            rs2_val
+                        );
+                        let result = (rs1_val as i32).wrapping_sub(rs2_val as i32);
+                        self.write_reg(rd, result as i64 as u64);
+                    }
+                    (0x1, 0x0) => {
+                        let shamt = rs2_val & 0x3F;
+                        debug_log!(
+                            "SLLW rd={}, rs1={}, rs1_val={}, rs2={}, rs2_val={}, shamt={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            rs2,
+                            rs2_val,
+                            shamt
+                        );
+                        self.write_reg(rd, ((rs1_val as u32) << shamt) as i32 as i64 as u64);
+                    }
+                    (0x5, 0x0) => {
+                        let shamt = rs2_val & 0x3F;
+                        debug_log!(
+                            "SRL rd={}, rs1={}, rs1_val={}, rs2={}, rs2_val={}, shamt={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            rs2,
+                            rs2_val,
+                            shamt
+                        );
+                        self.write_reg(rd, ((rs1_val as u32) >> shamt) as u64);
+                    }
+                    (0x5, 0x20) => {
+                        let shamt = rs2_val & 0x3F;
+                        debug_log!(
+                            "SRA rd={}, rs1={}, rs1_val={}, rs2={}, rs2_val={}, shamt={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            rs2,
+                            rs2_val,
+                            shamt
+                        );
+                        self.write_reg(rd, ((rs1_val as i32) >> shamt) as i64 as u64);
                     }
                     _ => debug_log!("Not Implemented"),
                 }
@@ -1275,5 +1420,217 @@ mod tests {
         cpu.step();
         assert!(cpu.halted);
         assert_eq!(cpu.read_reg(10), 0); // a0 확인
+    }
+
+    // === RV64I W suffix operations (OP-IMM-32) ===
+    #[test]
+    fn test_addiw() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 10);
+        // ADDIW x2, x1, 20 → 0x0140811B
+        cpu.bus.write32(0x80000000, 0x0140811B);
+        cpu.step();
+        assert_eq!(cpu.read_reg(2), 30);
+    }
+
+    #[test]
+    fn test_addiw_overflow() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0x7FFFFFFF); // max i32
+        // ADDIW x2, x1, 1 → 0x0010811B
+        cpu.bus.write32(0x80000000, 0x0010811B);
+        cpu.step();
+        // 0x7FFFFFFF + 1 = 0x80000000 (i32), sign extended to 64-bit
+        assert_eq!(cpu.read_reg(2), 0xFFFFFFFF80000000);
+    }
+
+    #[test]
+    fn test_addiw_negative() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0);
+        // ADDIW x2, x1, -1 (0xFFF) → 0xFFF0811B
+        cpu.bus.write32(0x80000000, 0xFFF0811B);
+        cpu.step();
+        assert_eq!(cpu.read_reg(2), 0xFFFFFFFFFFFFFFFF); // -1
+    }
+
+    #[test]
+    fn test_addiw_ignores_upper_bits() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0xFFFFFFFF00000005); // upper bits should be ignored
+        // ADDIW x2, x1, 3 → 0x0030811B
+        cpu.bus.write32(0x80000000, 0x0030811B);
+        cpu.step();
+        // Only lower 32 bits (5) + 3 = 8, sign extended
+        assert_eq!(cpu.read_reg(2), 8);
+    }
+
+    #[test]
+    fn test_slliw() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 1);
+        // SLLIW x2, x1, 4 → 0x0040911B
+        cpu.bus.write32(0x80000000, 0x0040911B);
+        cpu.step();
+        assert_eq!(cpu.read_reg(2), 16); // 1 << 4 = 16
+    }
+
+    #[test]
+    fn test_slliw_sign_extend() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0x40000000); // bit 30 set
+        // SLLIW x2, x1, 1 → 0x0010911B
+        cpu.bus.write32(0x80000000, 0x0010911B);
+        cpu.step();
+        // 0x40000000 << 1 = 0x80000000, sign extended
+        assert_eq!(cpu.read_reg(2), 0xFFFFFFFF80000000);
+    }
+
+    #[test]
+    fn test_srliw() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0x80000000);
+        // SRLIW x2, x1, 4 → 0x0040D11B
+        cpu.bus.write32(0x80000000, 0x0040D11B);
+        cpu.step();
+        // logical shift: 0x80000000 >> 4 = 0x08000000
+        assert_eq!(cpu.read_reg(2), 0x08000000);
+    }
+
+    #[test]
+    fn test_srliw_upper_ignored() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0xFFFFFFFF80000000); // upper bits set
+        // SRLIW x2, x1, 4 → 0x0040D11B
+        cpu.bus.write32(0x80000000, 0x0040D11B);
+        cpu.step();
+        // Only operates on lower 32 bits, result is 32-bit zero-extended then sign-extended
+        assert_eq!(cpu.read_reg(2), 0x08000000);
+    }
+
+    #[test]
+    fn test_sraiw() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0x80000000); // negative 32-bit
+        // SRAIW x2, x1, 4 → 0x4040D11B
+        cpu.bus.write32(0x80000000, 0x4040D11B);
+        cpu.step();
+        // arithmetic shift: 0x80000000 >> 4 = 0xF8000000, sign extended
+        assert_eq!(cpu.read_reg(2), 0xFFFFFFFFF8000000);
+    }
+
+    #[test]
+    fn test_sraiw_positive() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0x40000000); // positive 32-bit
+        // SRAIW x2, x1, 4 → 0x4040D11B
+        cpu.bus.write32(0x80000000, 0x4040D11B);
+        cpu.step();
+        assert_eq!(cpu.read_reg(2), 0x04000000);
+    }
+
+    // === RV64I W suffix operations (OP-32) ===
+    #[test]
+    fn test_addw() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 10);
+        cpu.write_reg(2, 20);
+        // ADDW x3, x1, x2 → 0x002081BB
+        cpu.bus.write32(0x80000000, 0x002081BB);
+        cpu.step();
+        assert_eq!(cpu.read_reg(3), 30);
+    }
+
+    #[test]
+    fn test_addw_overflow() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0x7FFFFFFF);
+        cpu.write_reg(2, 1);
+        // ADDW x3, x1, x2 → 0x002081BB
+        cpu.bus.write32(0x80000000, 0x002081BB);
+        cpu.step();
+        // 32-bit overflow: 0x7FFFFFFF + 1 = 0x80000000, sign extended
+        assert_eq!(cpu.read_reg(3), 0xFFFFFFFF80000000);
+    }
+
+    #[test]
+    fn test_subw() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 100);
+        cpu.write_reg(2, 30);
+        // SUBW x3, x1, x2 → 0x402081BB
+        cpu.bus.write32(0x80000000, 0x402081BB);
+        cpu.step();
+        assert_eq!(cpu.read_reg(3), 70);
+    }
+
+    #[test]
+    fn test_subw_underflow() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0);
+        cpu.write_reg(2, 1);
+        // SUBW x3, x1, x2 → 0x402081BB
+        cpu.bus.write32(0x80000000, 0x402081BB);
+        cpu.step();
+        // 0 - 1 = -1 in 32-bit, sign extended
+        assert_eq!(cpu.read_reg(3), 0xFFFFFFFFFFFFFFFF);
+    }
+
+    #[test]
+    fn test_sllw() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 1);
+        cpu.write_reg(2, 4);
+        // SLLW x3, x1, x2 → 0x002091BB
+        cpu.bus.write32(0x80000000, 0x002091BB);
+        cpu.step();
+        assert_eq!(cpu.read_reg(3), 16);
+    }
+
+    #[test]
+    fn test_sllw_sign_extend() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0x40000000);
+        cpu.write_reg(2, 1);
+        // SLLW x3, x1, x2 → 0x002091BB
+        cpu.bus.write32(0x80000000, 0x002091BB);
+        cpu.step();
+        // 0x40000000 << 1 = 0x80000000, sign extended
+        assert_eq!(cpu.read_reg(3), 0xFFFFFFFF80000000);
+    }
+
+    #[test]
+    fn test_srlw() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0x80000000);
+        cpu.write_reg(2, 4);
+        // SRLW x3, x1, x2 → 0x0020D1BB
+        cpu.bus.write32(0x80000000, 0x0020D1BB);
+        cpu.step();
+        // logical shift: 0x80000000 >> 4 = 0x08000000
+        assert_eq!(cpu.read_reg(3), 0x08000000);
+    }
+
+    #[test]
+    fn test_sraw() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0x80000000);
+        cpu.write_reg(2, 4);
+        // SRAW x3, x1, x2 → 0x4020D1BB
+        cpu.bus.write32(0x80000000, 0x4020D1BB);
+        cpu.step();
+        // arithmetic shift: 0x80000000 >> 4 = 0xF8000000, sign extended
+        assert_eq!(cpu.read_reg(3), 0xFFFFFFFFF8000000);
+    }
+
+    #[test]
+    fn test_sraw_positive() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0x40000000);
+        cpu.write_reg(2, 4);
+        // SRAW x3, x1, x2 → 0x4020D1BB
+        cpu.bus.write32(0x80000000, 0x4020D1BB);
+        cpu.step();
+        assert_eq!(cpu.read_reg(3), 0x04000000);
     }
 }
