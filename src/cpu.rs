@@ -44,6 +44,19 @@ impl Cpu {
         self.memory.read32(self.pc)
     }
 
+    pub fn load_program(&mut self, program: &[u32]) {
+        for (i, &inst) in program.iter().enumerate() {
+            let addr = DRAM_BASE + (i as u32) * 4;
+            self.memory.write32(addr, inst);
+        }
+    }
+
+    pub fn run(&mut self) {
+        while !self.halted {
+            self.step();
+        }
+    }
+
     pub fn step(&mut self) {
         let inst = self.fetch();
         let op = decoder::opcode(inst);
