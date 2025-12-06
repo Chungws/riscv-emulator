@@ -1,10 +1,12 @@
 pub mod bus;
 pub mod cpu;
+pub mod csr;
 pub mod decoder;
 pub mod devices;
 
 pub use bus::Bus;
 pub use cpu::Cpu;
+pub use csr::Csr;
 
 #[macro_export]
 macro_rules! debug_log {

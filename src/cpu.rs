@@ -1,6 +1,6 @@
 use core::panic;
 
-use crate::{Bus, debug_log, decoder, devices::DRAM_BASE};
+use crate::{Bus, Csr, debug_log, decoder, devices::DRAM_BASE};
 
 const OP_IMM: u32 = 0x13;
 const OP_IMM_32: u32 = 0x1B;
@@ -17,6 +17,7 @@ const SYSTEM: u32 = 0x73;
 
 pub struct Cpu {
     pub regs: [u64; 32],
+    pub csr: Csr,
     pub pc: u64,
     pub bus: Bus,
     pub halted: bool,
@@ -26,6 +27,7 @@ impl Cpu {
     pub fn new() -> Self {
         Self {
             regs: [0; 32],
+            csr: Csr::new(),
             pc: DRAM_BASE,
             bus: Bus::new(),
             halted: false,
@@ -101,26 +103,60 @@ impl Cpu {
 
         match funct3 {
             0x0 => {
-                debug_log!("ADDI rd={}, rs1={}, rs1_val={}, imm={}", rd, rs1, rs1_val, imm);
+                debug_log!(
+                    "ADDI rd={}, rs1={}, rs1_val={}, imm={}",
+                    rd,
+                    rs1,
+                    rs1_val,
+                    imm
+                );
                 self.write_reg(rd, rs1_val.wrapping_add(imm as u64));
             }
             0x1 => {
                 let shamt = (imm as u64) & 0x3F;
-                debug_log!("SLLI rd={}, rs1={}, rs1_val={}, shamt={}", rd, rs1, rs1_val, shamt);
+                debug_log!(
+                    "SLLI rd={}, rs1={}, rs1_val={}, shamt={}",
+                    rd,
+                    rs1,
+                    rs1_val,
+                    shamt
+                );
                 self.write_reg(rd, rs1_val << shamt);
             }
             0x2 => {
-                debug_log!("SLTI rd={}, rs1={}, rs1_val={}, imm={}", rd, rs1, rs1_val, imm);
-                let result = if (rs1_val as i64) < (imm as i64) { 1 } else { 0 };
+                debug_log!(
+                    "SLTI rd={}, rs1={}, rs1_val={}, imm={}",
+                    rd,
+                    rs1,
+                    rs1_val,
+                    imm
+                );
+                let result = if (rs1_val as i64) < (imm as i64) {
+                    1
+                } else {
+                    0
+                };
                 self.write_reg(rd, result);
             }
             0x3 => {
-                debug_log!("SLTIU rd={}, rs1={}, rs1_val={}, imm={}", rd, rs1, rs1_val, imm);
+                debug_log!(
+                    "SLTIU rd={}, rs1={}, rs1_val={}, imm={}",
+                    rd,
+                    rs1,
+                    rs1_val,
+                    imm
+                );
                 let result = if rs1_val < (imm as u64) { 1 } else { 0 };
                 self.write_reg(rd, result);
             }
             0x4 => {
-                debug_log!("XORI rd={}, rs1={}, rs1_val={}, imm={}", rd, rs1, rs1_val, imm);
+                debug_log!(
+                    "XORI rd={}, rs1={}, rs1_val={}, imm={}",
+                    rd,
+                    rs1,
+                    rs1_val,
+                    imm
+                );
                 self.write_reg(rd, rs1_val ^ (imm as u64));
             }
             0x5 => {
@@ -128,22 +164,46 @@ impl Cpu {
                 let shamt = (imm as u64) & 0x3F;
                 match funct7 {
                     0x00 => {
-                        debug_log!("SRLI rd={}, rs1={}, rs1_val={}, shamt={}", rd, rs1, rs1_val, shamt);
+                        debug_log!(
+                            "SRLI rd={}, rs1={}, rs1_val={}, shamt={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            shamt
+                        );
                         self.write_reg(rd, rs1_val >> shamt);
                     }
                     0x20 => {
-                        debug_log!("SRAI rd={}, rs1={}, rs1_val={}, shamt={}", rd, rs1, rs1_val, shamt);
+                        debug_log!(
+                            "SRAI rd={}, rs1={}, rs1_val={}, shamt={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            shamt
+                        );
                         self.write_reg(rd, ((rs1_val as i64) >> shamt) as u64);
                     }
                     _ => panic!("Not Implemented OP_IMM funct7: {:#x}", funct7),
                 }
             }
             0x6 => {
-                debug_log!("ORI rd={}, rs1={}, rs1_val={}, imm={}", rd, rs1, rs1_val, imm);
+                debug_log!(
+                    "ORI rd={}, rs1={}, rs1_val={}, imm={}",
+                    rd,
+                    rs1,
+                    rs1_val,
+                    imm
+                );
                 self.write_reg(rd, rs1_val | (imm as u64));
             }
             0x7 => {
-                debug_log!("ANDI rd={}, rs1={}, rs1_val={}, imm={}", rd, rs1, rs1_val, imm);
+                debug_log!(
+                    "ANDI rd={}, rs1={}, rs1_val={}, imm={}",
+                    rd,
+                    rs1,
+                    rs1_val,
+                    imm
+                );
                 self.write_reg(rd, rs1_val & (imm as u64));
             }
             _ => panic!("Not Implemented OP_IMM funct3: {:#x}", funct3),
@@ -160,13 +220,25 @@ impl Cpu {
 
         match funct3 {
             0x0 => {
-                debug_log!("ADDIW rd={}, rs1={}, rs1_val={}, imm={}", rd, rs1, rs1_val, imm);
+                debug_log!(
+                    "ADDIW rd={}, rs1={}, rs1_val={}, imm={}",
+                    rd,
+                    rs1,
+                    rs1_val,
+                    imm
+                );
                 let result = (rs1_val as i32).wrapping_add(imm as i32);
                 self.write_reg(rd, result as i64 as u64);
             }
             0x1 => {
                 let shamt = (imm as u64) & 0x3F;
-                debug_log!("SLLIW rd={}, rs1={}, rs1_val={}, shamt={}", rd, rs1, rs1_val, shamt);
+                debug_log!(
+                    "SLLIW rd={}, rs1={}, rs1_val={}, shamt={}",
+                    rd,
+                    rs1,
+                    rs1_val,
+                    shamt
+                );
                 self.write_reg(rd, ((rs1_val as u32) << shamt) as i32 as i64 as u64);
             }
             0x5 => {
@@ -174,11 +246,23 @@ impl Cpu {
                 let shamt = (imm as u64) & 0x3F;
                 match funct7 {
                     0x00 => {
-                        debug_log!("SRLIW rd={}, rs1={}, rs1_val={}, shamt={}", rd, rs1, rs1_val, shamt);
+                        debug_log!(
+                            "SRLIW rd={}, rs1={}, rs1_val={}, shamt={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            shamt
+                        );
                         self.write_reg(rd, ((rs1_val as u32) >> shamt) as u64);
                     }
                     0x20 => {
-                        debug_log!("SRAIW rd={}, rs1={}, rs1_val={}, shamt={}", rd, rs1, rs1_val, shamt);
+                        debug_log!(
+                            "SRAIW rd={}, rs1={}, rs1_val={}, shamt={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            shamt
+                        );
                         self.write_reg(rd, ((rs1_val as i32) >> shamt) as i64 as u64);
                     }
                     _ => panic!("Not Implemented OP_IMM_32 funct7: {:#x}", funct7),
@@ -214,7 +298,11 @@ impl Cpu {
             }
             (0x2, 0x0) => {
                 debug_log!("SLT rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
-                let result = if (rs1_val as i64) < (rs2_val as i64) { 1 } else { 0 };
+                let result = if (rs1_val as i64) < (rs2_val as i64) {
+                    1
+                } else {
+                    0
+                };
                 self.write_reg(rd, result);
             }
             (0x3, 0x0) => {
@@ -244,7 +332,10 @@ impl Cpu {
                 debug_log!("AND rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
                 self.write_reg(rd, rs1_val & rs2_val);
             }
-            _ => panic!("Not Implemented OP funct3={:#x}, funct7={:#x}", funct3, funct7),
+            _ => panic!(
+                "Not Implemented OP funct3={:#x}, funct7={:#x}",
+                funct3, funct7
+            ),
         }
     }
 
@@ -284,7 +375,10 @@ impl Cpu {
                 debug_log!("SRAW rd={}, rs1_val={}, shamt={}", rd, rs1_val, shamt);
                 self.write_reg(rd, ((rs1_val as i32) >> shamt) as i64 as u64);
             }
-            _ => panic!("Not Implemented OP_32 funct3={:#x}, funct7={:#x}", funct3, funct7),
+            _ => panic!(
+                "Not Implemented OP_32 funct3={:#x}, funct7={:#x}",
+                funct3, funct7
+            ),
         }
     }
 
