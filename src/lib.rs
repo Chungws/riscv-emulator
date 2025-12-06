@@ -1,7 +1,9 @@
+pub mod bus;
 pub mod cpu;
 pub mod decoder;
 pub mod devices;
 
+pub use bus::Bus;
 pub use cpu::Cpu;
 
 #[macro_export]
