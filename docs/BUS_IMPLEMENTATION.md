@@ -125,10 +125,10 @@ fn test_uart_write() {
 ```
 
 ### 체크리스트
-- [ ] `devices/uart.rs` 생성
-- [ ] `Uart` 구조체 구현
-- [ ] `devices/mod.rs`에 추가
-- [ ] 테스트 통과
+- [x] `devices/uart.rs` 생성
+- [x] `Uart` 구조체 구현
+- [x] `devices/mod.rs`에 추가
+- [x] 테스트 통과
 
 ---
 
