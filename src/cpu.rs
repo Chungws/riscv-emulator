@@ -368,6 +368,19 @@ impl Cpu {
                         );
                         self.write_reg(rd, val);
                     }
+                    0x3 => {
+                        let val = self.bus.read64(addr);
+                        debug_log!(
+                            "LD rd={}, rs1={}, rs1_val={}, imm={}, addr={}, value={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            imm,
+                            addr,
+                            val
+                        );
+                        self.write_reg(rd, val);
+                    }
                     0x4 => {
                         let val = self.bus.read8(addr) as u64;
                         debug_log!(
@@ -385,6 +398,19 @@ impl Cpu {
                         let val = self.bus.read16(addr) as u64;
                         debug_log!(
                             "LHU rd={}, rs1={}, rs1_val={}, imm={}, addr={}, value={}",
+                            rd,
+                            rs1,
+                            rs1_val,
+                            imm,
+                            addr,
+                            val
+                        );
+                        self.write_reg(rd, val);
+                    }
+                    0x6 => {
+                        let val = self.bus.read32(addr) as u64;
+                        debug_log!(
+                            "LWU rd={}, rs1={}, rs1_val={}, imm={}, addr={}, value={}",
                             rd,
                             rs1,
                             rs1_val,
@@ -443,6 +469,18 @@ impl Cpu {
                             addr,
                         );
                         self.bus.write32(addr, rs2_val as u32);
+                    }
+                    0x3 => {
+                        debug_log!(
+                            "SD rs1={}, rs1_val={}, rs2={}, rs2_val={}, imm={}, addr={}",
+                            rs1,
+                            rs1_val,
+                            rs2,
+                            rs2_val,
+                            imm,
+                            addr,
+                        );
+                        self.bus.write64(addr, rs2_val);
                     }
                     _ => debug_log!("Not Implemented"),
                 }
@@ -953,6 +991,55 @@ mod tests {
         cpu.bus.write32(0x80000000, 0x0000D103);
         cpu.step();
         assert_eq!(cpu.read_reg(2), 0x00008000); // zero extended
+    }
+
+    // === RV64I 전용 로드/스토어 ===
+    #[test]
+    fn test_ld() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0x80001000);
+        cpu.bus.write64(0x80001000, 0xDEADBEEFCAFEBABE);
+        // LD x2, 0(x1) → 0x0000B103
+        cpu.bus.write32(0x80000000, 0x0000B103);
+        cpu.step();
+        assert_eq!(cpu.read_reg(2), 0xDEADBEEFCAFEBABE);
+    }
+
+    #[test]
+    fn test_sd() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0x80001000);
+        cpu.write_reg(2, 0x123456789ABCDEF0);
+        // SD x2, 0(x1) → 0x0020B023
+        cpu.bus.write32(0x80000000, 0x0020B023);
+        cpu.step();
+        assert_eq!(cpu.bus.read64(0x80001000), 0x123456789ABCDEF0);
+    }
+
+    #[test]
+    fn test_sd_ld() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0x80001000);
+        cpu.write_reg(2, 0xFEDCBA9876543210);
+        // SD x2, 0(x1) → 0x0020B023
+        cpu.bus.write32(0x80000000, 0x0020B023);
+        cpu.step();
+        // LD x3, 0(x1) → 0x0000B183
+        cpu.bus.write32(0x80000004, 0x0000B183);
+        cpu.step();
+        assert_eq!(cpu.read_reg(3), 0xFEDCBA9876543210);
+    }
+
+    #[test]
+    fn test_lwu() {
+        let mut cpu = Cpu::new();
+        cpu.write_reg(1, 0x80001000);
+        cpu.bus.write32(0x80001000, 0xDEADBEEF);
+        // LWU x2, 0(x1) → 0x0000E103
+        cpu.bus.write32(0x80000000, 0x0000E103);
+        cpu.step();
+        // LWU는 제로확장 (LW와 다르게 부호확장 안함)
+        assert_eq!(cpu.read_reg(2), 0x00000000DEADBEEF);
     }
 
     #[test]
