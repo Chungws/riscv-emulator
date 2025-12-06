@@ -46,10 +46,10 @@ impl Cpu {
         self.bus.read32(self.pc)
     }
 
-    pub fn load_program(&mut self, program: &[u64]) {
+    pub fn load_program(&mut self, program: &[u32]) {
         for (i, &inst) in program.iter().enumerate() {
             let addr = DRAM_BASE + (i as u64) * 4;
-            self.bus.write64(addr, inst);
+            self.bus.write32(addr, inst);
         }
     }
 
