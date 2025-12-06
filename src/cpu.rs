@@ -7,6 +7,8 @@ const STORE: u32 = 0x23;
 const BRANCH: u32 = 0x63;
 const JAL: u32 = 0x6F;
 const JALR: u32 = 0x67;
+const LUI: u32 = 0x37;
+const AUIPC: u32 = 0x17;
 
 pub struct Cpu {
     pub regs: [u32; 32],
@@ -541,6 +543,20 @@ impl Cpu {
                 self.pc = ((rs1_val as i32).wrapping_add(imm) as u32) & 0xFFFFFFFE;
                 return;
             }
+            LUI => {
+                debug_log!("LUI");
+                let rd = decoder::rd(inst);
+                let imm = decoder::imm_u(inst);
+                debug_log!("LUI rd={}, imm={}, pc={}", rd, imm, self.pc);
+                self.write_reg(rd, imm as u32);
+            }
+            AUIPC => {
+                debug_log!("AUIPC");
+                let rd = decoder::rd(inst);
+                let imm = decoder::imm_u(inst);
+                debug_log!("AUIPC rd={}, imm={}, pc={}", rd, imm, self.pc);
+                self.write_reg(rd, ((self.pc as i32).wrapping_add(imm)) as u32);
+            }
             _ => panic!("Not Supported Opcode"),
         }
         self.pc += 4
@@ -1061,5 +1077,43 @@ mod tests {
         cpu.memory.write32(0x80000000, 0x000100E7);
         cpu.step();
         assert_eq!(cpu.pc, 0x80001000); // LSB 클리어됨
+    }
+
+    // === Upper Immediate ===
+    #[test]
+    fn test_lui() {
+        let mut cpu = Cpu::new();
+        // LUI x1, 0x12345 → 0x123450B7
+        cpu.memory.write32(0x80000000, 0x123450B7);
+        cpu.step();
+        assert_eq!(cpu.read_reg(1), 0x12345000);
+    }
+
+    #[test]
+    fn test_lui_high_bit() {
+        let mut cpu = Cpu::new();
+        // LUI x1, 0x80000 → 0x800000B7
+        cpu.memory.write32(0x80000000, 0x800000B7);
+        cpu.step();
+        assert_eq!(cpu.read_reg(1), 0x80000000);
+    }
+
+    #[test]
+    fn test_auipc() {
+        let mut cpu = Cpu::new();
+        // AUIPC x1, 0x12345 → 0x12345097
+        cpu.memory.write32(0x80000000, 0x12345097);
+        cpu.step();
+        assert_eq!(cpu.read_reg(1), 0x80000000 + 0x12345000);
+    }
+
+    #[test]
+    fn test_auipc_different_pc() {
+        let mut cpu = Cpu::new();
+        cpu.pc = 0x80001000;
+        // AUIPC x1, 0x1 → 0x00001097
+        cpu.memory.write32(0x80001000, 0x00001097);
+        cpu.step();
+        assert_eq!(cpu.read_reg(1), 0x80001000 + 0x1000);
     }
 }
