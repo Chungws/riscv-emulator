@@ -1,6 +1,6 @@
 pub mod cpu;
 pub mod decoder;
-pub mod memory;
+pub mod devices;
 
 pub use cpu::Cpu;
 

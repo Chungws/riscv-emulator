@@ -1,6 +1,6 @@
 use core::panic;
 
-use crate::{DRAM_BASE, debug_log, decoder, memory::Memory};
+use crate::{DRAM_BASE, debug_log, decoder, devices::Memory};
 
 const OP_IMM: u32 = 0x13;
 const OP: u32 = 0x33;
