@@ -329,10 +329,10 @@ impl Cpu {
 
 ### 체크리스트
 
-- [ ] `PrivilegeMode` enum 정의
-- [ ] `Cpu`에 `mode` 필드 추가
-- [ ] 초기 모드를 Machine으로 설정
-- [ ] `cargo build` 확인
+- [x] `PrivilegeMode` enum 정의
+- [x] `Cpu`에 `mode` 필드 추가
+- [x] 초기 모드를 Machine으로 설정
+- [x] `cargo build` 확인
 
 ---
 
