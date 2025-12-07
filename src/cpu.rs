@@ -15,10 +15,18 @@ const LUI: u32 = 0x37;
 const AUIPC: u32 = 0x17;
 const SYSTEM: u32 = 0x73;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PrivilegeMode {
+    User = 0,
+    Supervisor = 1,
+    Machine = 3,
+}
+
 pub struct Cpu {
     pub regs: [u64; 32],
     pub csr: Csr,
     pub pc: u64,
+    pub mode: PrivilegeMode,
     pub bus: Bus,
     pub halted: bool,
 }
@@ -29,6 +37,7 @@ impl Cpu {
             regs: [0; 32],
             csr: Csr::new(),
             pc: DRAM_BASE,
+            mode: PrivilegeMode::Machine,
             bus: Bus::new(),
             halted: false,
         }
