@@ -1,5 +1,25 @@
 use std::collections::HashMap;
 
+pub const MSTATUS: u16 = 0x300;
+pub const MTVEC: u16 = 0x305;
+pub const MEPC: u16 = 0x341;
+pub const MCAUSE: u16 = 0x342;
+pub const MTVAL: u16 = 0x343;
+pub const MHARTID: u16 = 0xF14;
+
+pub const SSTATUS: u16 = 0x100;
+pub const STVEC: u16 = 0x105;
+pub const SEPC: u16 = 0x141;
+pub const SCAUSE: u16 = 0x142;
+pub const STVAL: u16 = 0x143;
+
+pub const MSTATUS_MIE: u64 = 0x8;
+pub const MSTATUS_MPIE: u64 = 0x80;
+pub const MSTATUS_MPP: u64 = 0x1800;
+pub const MSTATUS_SIE: u64 = 0x2;
+pub const MSTATUS_SPIE: u64 = 0x20;
+pub const MSTATUS_SPP: u64 = 0x100;
+
 pub struct Csr {
     data: HashMap<u16, u64>,
 }
