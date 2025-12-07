@@ -1,6 +1,6 @@
 use core::panic;
 
-use crate::{Bus, Csr, csr, debug_log, decoder, devices::DRAM_BASE};
+use crate::{Bus, Csr, csr, debug_log, decoder, devices};
 
 const OP_IMM: u32 = 0x13;
 const OP_IMM_32: u32 = 0x1B;
@@ -47,7 +47,7 @@ impl Cpu {
         Self {
             regs: [0; 32],
             csr: csr,
-            pc: DRAM_BASE,
+            pc: devices::memory::DRAM_BASE,
             mode: PrivilegeMode::Machine,
             bus: Bus::new(),
             halted: false,
@@ -70,7 +70,7 @@ impl Cpu {
 
     pub fn load_program(&mut self, program: &[u32]) {
         for (i, &inst) in program.iter().enumerate() {
-            let addr = DRAM_BASE + (i as u64) * 4;
+            let addr = devices::memory::DRAM_BASE + (i as u64) * 4;
             self.bus.write32(addr, inst);
         }
     }
@@ -1490,7 +1490,8 @@ mod tests {
     fn test_mret_restores_mie_from_mpie() {
         let mut cpu = Cpu::new();
         cpu.csr.write(csr::MEPC, 0x80002000);
-        cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MPIE | csr::MSTATUS_MPP); // MPIE=1
+        cpu.csr
+            .write(csr::MSTATUS, csr::MSTATUS_MPIE | csr::MSTATUS_MPP); // MPIE=1
         cpu.bus.write32(0x80000000, 0x30200073); // mret
         cpu.step();
 
@@ -1540,7 +1541,8 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.mode = PrivilegeMode::Supervisor;
         cpu.csr.write(csr::SEPC, 0x80003000);
-        cpu.csr.write(csr::SSTATUS, csr::SSTATUS_SPIE | csr::SSTATUS_SPP); // SPIE=1, SPP=S
+        cpu.csr
+            .write(csr::SSTATUS, csr::SSTATUS_SPIE | csr::SSTATUS_SPP); // SPIE=1, SPP=S
         cpu.bus.write32(0x80000000, 0x10200073); // sret
         cpu.step();
 
