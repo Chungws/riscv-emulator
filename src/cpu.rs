@@ -4,8 +4,8 @@ use crate::{
     Bus, Csr,
     csr::{
         BREAKPOINT, ECALL_FROM_M, ECALL_FROM_S, ECALL_FROM_U, INTERRUPT_BIT, MCAUSE, MEPC, MHARTID,
-        MISA, MSTATUS, MSTATUS_MIE, MSTATUS_MPIE, MSTATUS_MPP, MSTATUS_SIE, MSTATUS_SPIE,
-        MSTATUS_SPP, MTVAL, MTVEC, SEPC, SSTATUS,
+        MISA, MSTATUS, MSTATUS_MIE, MSTATUS_MPIE, MSTATUS_MPP, MTVAL, MTVEC, SEPC, SSTATUS,
+        SSTATUS_SIE, SSTATUS_SPIE, SSTATUS_SPP,
     },
     debug_log, decoder,
     devices::DRAM_BASE,
@@ -675,23 +675,23 @@ impl Cpu {
                         debug_log!("SRET");
                         self.pc = self.csr.read(SEPC);
 
-                        let mut mstatus = self.csr.read(SSTATUS);
-                        let spie = (mstatus & MSTATUS_SPIE) != 0;
+                        let mut sstatus = self.csr.read(SSTATUS);
+                        let spie = (sstatus & SSTATUS_SPIE) != 0;
                         if spie {
-                            mstatus |= MSTATUS_SIE;
+                            sstatus |= SSTATUS_SIE;
                         } else {
-                            mstatus &= !MSTATUS_SIE;
+                            sstatus &= !SSTATUS_SIE;
                         }
-                        mstatus |= MSTATUS_SPIE;
+                        sstatus |= SSTATUS_SPIE;
 
-                        let spp = (mstatus & MSTATUS_SPP) != 0;
+                        let spp = (sstatus & SSTATUS_SPP) != 0;
                         self.mode = if spp {
                             PrivilegeMode::Supervisor
                         } else {
                             PrivilegeMode::User
                         };
-                        mstatus &= !MSTATUS_SPP;
-                        self.csr.write(MSTATUS, mstatus);
+                        sstatus &= !SSTATUS_SPP;
+                        self.csr.write(SSTATUS, sstatus);
                         true
                     }
                     _ => panic!("Not Implemented!"),
@@ -794,7 +794,7 @@ mod tests {
     use super::*;
     use crate::csr::{
         BREAKPOINT, ECALL_FROM_M, ECALL_FROM_S, MCAUSE, MEPC, MHARTID, MISA, MSTATUS, MSTATUS_MIE,
-        MSTATUS_MPIE, MSTATUS_MPP, MSTATUS_SIE, MSTATUS_SPIE, MSTATUS_SPP, MTVEC, SEPC, SSTATUS,
+        MSTATUS_MPIE, MSTATUS_MPP, MTVEC, SEPC, SSTATUS, SSTATUS_SIE, SSTATUS_SPIE, SSTATUS_SPP,
     };
 
     #[test]
@@ -1529,7 +1529,7 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.mode = PrivilegeMode::Supervisor;
         cpu.csr.write(SEPC, 0x80003000);
-        cpu.csr.write(SSTATUS, MSTATUS_SPP); // SPP = Supervisor
+        cpu.csr.write(SSTATUS, SSTATUS_SPP); // SPP = Supervisor
         cpu.bus.write32(0x80000000, 0x10200073); // sret
         cpu.step();
 
@@ -1546,6 +1546,33 @@ mod tests {
         cpu.step();
 
         assert_eq!(cpu.mode, PrivilegeMode::User);
+    }
+
+    #[test]
+    fn test_sret_restores_sie_from_spie() {
+        let mut cpu = Cpu::new();
+        cpu.mode = PrivilegeMode::Supervisor;
+        cpu.csr.write(SEPC, 0x80003000);
+        cpu.csr.write(SSTATUS, SSTATUS_SPIE | SSTATUS_SPP); // SPIE=1, SPP=S
+        cpu.bus.write32(0x80000000, 0x10200073); // sret
+        cpu.step();
+
+        let sstatus = cpu.csr.read(SSTATUS);
+        assert_eq!(sstatus & SSTATUS_SIE, SSTATUS_SIE); // SIE = 1 (from SPIE)
+        assert_eq!(sstatus & SSTATUS_SPIE, SSTATUS_SPIE); // SPIE = 1
+    }
+
+    #[test]
+    fn test_sret_clears_spp() {
+        let mut cpu = Cpu::new();
+        cpu.mode = PrivilegeMode::Supervisor;
+        cpu.csr.write(SEPC, 0x80003000);
+        cpu.csr.write(SSTATUS, SSTATUS_SPP); // SPP = Supervisor
+        cpu.bus.write32(0x80000000, 0x10200073); // sret
+        cpu.step();
+
+        let sstatus = cpu.csr.read(SSTATUS);
+        assert_eq!(sstatus & SSTATUS_SPP, 0); // SPP cleared
     }
 
     #[test]

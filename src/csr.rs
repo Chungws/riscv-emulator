@@ -21,6 +21,11 @@ pub const MSTATUS_SIE: u64 = 0x2;
 pub const MSTATUS_SPIE: u64 = 0x20;
 pub const MSTATUS_SPP: u64 = 0x100;
 
+// SSTATUS aliases (same bit positions as MSTATUS)
+pub const SSTATUS_SIE: u64 = MSTATUS_SIE;
+pub const SSTATUS_SPIE: u64 = MSTATUS_SPIE;
+pub const SSTATUS_SPP: u64 = MSTATUS_SPP;
+
 pub const ECALL_FROM_U: u64 = 8;
 pub const ECALL_FROM_S: u64 = 9;
 pub const ECALL_FROM_M: u64 = 11;
