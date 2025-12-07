@@ -1,15 +1,6 @@
 use core::panic;
 
-use crate::{
-    Bus, Csr,
-    csr::{
-        BREAKPOINT, ECALL_FROM_M, ECALL_FROM_S, ECALL_FROM_U, INTERRUPT_BIT, MCAUSE, MEPC, MHARTID,
-        MISA, MSTATUS, MSTATUS_MIE, MSTATUS_MPIE, MSTATUS_MPP, MTVAL, MTVEC, SEPC, SSTATUS,
-        SSTATUS_SIE, SSTATUS_SPIE, SSTATUS_SPP,
-    },
-    debug_log, decoder,
-    devices::DRAM_BASE,
-};
+use crate::{Bus, Csr, csr, debug_log, decoder, devices::DRAM_BASE};
 
 const OP_IMM: u32 = 0x13;
 const OP_IMM_32: u32 = 0x1B;
@@ -48,10 +39,10 @@ impl Cpu {
         // 비트 8: I (기본 정수)
         // 비트 18: S (Supervisor)
         // 비트 20: U (User)
-        csr.write(MISA, 0x8000000000140100);
+        csr.write(csr::MISA, 0x8000000000140100);
 
         // mhartid: single core = 0
-        csr.write(MHARTID, 0);
+        csr.write(csr::MHARTID, 0);
 
         Self {
             regs: [0; 32],
@@ -85,28 +76,28 @@ impl Cpu {
     }
 
     pub fn trap(&mut self, cause: u64, tval: u64) {
-        let is_interrupt = (cause & INTERRUPT_BIT) > 0;
-        self.csr.write(MEPC, self.pc);
-        self.csr.write(MCAUSE, cause);
-        self.csr.write(MTVAL, tval);
+        let is_interrupt = (cause & csr::INTERRUPT_BIT) > 0;
+        self.csr.write(csr::MEPC, self.pc);
+        self.csr.write(csr::MCAUSE, cause);
+        self.csr.write(csr::MTVAL, tval);
 
-        let mut mstatus = self.csr.read(MSTATUS);
-        let mie = (mstatus & MSTATUS_MIE) != 0;
+        let mut mstatus = self.csr.read(csr::MSTATUS);
+        let mie = (mstatus & csr::MSTATUS_MIE) != 0;
         if mie {
-            mstatus |= MSTATUS_MPIE;
+            mstatus |= csr::MSTATUS_MPIE;
         } else {
-            mstatus &= !MSTATUS_MPIE;
+            mstatus &= !csr::MSTATUS_MPIE;
         }
-        mstatus &= !MSTATUS_MIE;
+        mstatus &= !csr::MSTATUS_MIE;
 
-        mstatus &= !MSTATUS_MPP;
+        mstatus &= !csr::MSTATUS_MPP;
         mstatus |= (self.mode as u64) << 11;
 
-        self.csr.write(MSTATUS, mstatus);
+        self.csr.write(csr::MSTATUS, mstatus);
 
         self.mode = PrivilegeMode::Machine;
 
-        let mtvec = self.csr.read(MTVEC);
+        let mtvec = self.csr.read(csr::MTVEC);
         let mode = mtvec & 0x3;
         let base = mtvec & !0x3;
         if mode == 0 {
@@ -629,69 +620,69 @@ impl Cpu {
                         match self.mode {
                             PrivilegeMode::Machine => {
                                 debug_log!("ECALL Machine Mode");
-                                self.trap(ECALL_FROM_M, 0);
+                                self.trap(csr::ECALL_FROM_M, 0);
                             }
                             PrivilegeMode::Supervisor => {
                                 debug_log!("ECALL Supervisor Mode");
-                                self.trap(ECALL_FROM_S, 0);
+                                self.trap(csr::ECALL_FROM_S, 0);
                             }
                             PrivilegeMode::User => {
                                 debug_log!("ECALL User Mode");
-                                self.trap(ECALL_FROM_U, 0);
+                                self.trap(csr::ECALL_FROM_U, 0);
                             }
                         }
                         true
                     }
                     (0x00, 0x01) => {
                         debug_log!("EBREAK");
-                        self.trap(BREAKPOINT, 0);
+                        self.trap(csr::BREAKPOINT, 0);
                         true
                     }
                     (0x18, 0x02) => {
                         debug_log!("MRET");
-                        self.pc = self.csr.read(MEPC);
+                        self.pc = self.csr.read(csr::MEPC);
 
-                        let mut mstatus = self.csr.read(MSTATUS);
-                        let mpie = (mstatus & MSTATUS_MPIE) != 0;
+                        let mut mstatus = self.csr.read(csr::MSTATUS);
+                        let mpie = (mstatus & csr::MSTATUS_MPIE) != 0;
                         if mpie {
-                            mstatus |= MSTATUS_MIE;
+                            mstatus |= csr::MSTATUS_MIE;
                         } else {
-                            mstatus &= !MSTATUS_MIE;
+                            mstatus &= !csr::MSTATUS_MIE;
                         }
-                        mstatus |= MSTATUS_MPIE;
+                        mstatus |= csr::MSTATUS_MPIE;
 
-                        let mpp = (mstatus & MSTATUS_MPP) >> 11;
+                        let mpp = (mstatus & csr::MSTATUS_MPP) >> 11;
                         self.mode = match mpp {
                             0 => PrivilegeMode::User,
                             1 => PrivilegeMode::Supervisor,
                             3 => PrivilegeMode::Machine,
                             _ => panic!("Not Avaliable PrivilegeMode"),
                         };
-                        mstatus &= !MSTATUS_MPP;
-                        self.csr.write(MSTATUS, mstatus);
+                        mstatus &= !csr::MSTATUS_MPP;
+                        self.csr.write(csr::MSTATUS, mstatus);
                         true
                     }
                     (0x08, 0x02) => {
                         debug_log!("SRET");
-                        self.pc = self.csr.read(SEPC);
+                        self.pc = self.csr.read(csr::SEPC);
 
-                        let mut sstatus = self.csr.read(SSTATUS);
-                        let spie = (sstatus & SSTATUS_SPIE) != 0;
+                        let mut sstatus = self.csr.read(csr::SSTATUS);
+                        let spie = (sstatus & csr::SSTATUS_SPIE) != 0;
                         if spie {
-                            sstatus |= SSTATUS_SIE;
+                            sstatus |= csr::SSTATUS_SIE;
                         } else {
-                            sstatus &= !SSTATUS_SIE;
+                            sstatus &= !csr::SSTATUS_SIE;
                         }
-                        sstatus |= SSTATUS_SPIE;
+                        sstatus |= csr::SSTATUS_SPIE;
 
-                        let spp = (sstatus & SSTATUS_SPP) != 0;
+                        let spp = (sstatus & csr::SSTATUS_SPP) != 0;
                         self.mode = if spp {
                             PrivilegeMode::Supervisor
                         } else {
                             PrivilegeMode::User
                         };
-                        sstatus &= !SSTATUS_SPP;
-                        self.csr.write(SSTATUS, sstatus);
+                        sstatus &= !csr::SSTATUS_SPP;
+                        self.csr.write(csr::SSTATUS, sstatus);
                         true
                     }
                     _ => panic!("Not Implemented!"),
@@ -792,10 +783,6 @@ impl Cpu {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::csr::{
-        BREAKPOINT, ECALL_FROM_M, ECALL_FROM_S, MCAUSE, MEPC, MHARTID, MISA, MSTATUS, MSTATUS_MIE,
-        MSTATUS_MPIE, MSTATUS_MPP, MTVEC, SEPC, SSTATUS, SSTATUS_SIE, SSTATUS_SPIE, SSTATUS_SPP,
-    };
 
     #[test]
     fn test_cpu_init() {
@@ -809,7 +796,7 @@ mod tests {
     #[test]
     fn test_misa_init() {
         let cpu = Cpu::new();
-        let misa = cpu.csr.read(MISA);
+        let misa = cpu.csr.read(csr::MISA);
 
         // MXL = 2 (64-bit)
         assert_eq!(misa >> 62, 2);
@@ -827,7 +814,7 @@ mod tests {
     #[test]
     fn test_mhartid_init() {
         let cpu = Cpu::new();
-        assert_eq!(cpu.csr.read(MHARTID), 0); // single core
+        assert_eq!(cpu.csr.read(csr::MHARTID), 0); // single core
     }
 
     #[test]
@@ -1353,13 +1340,13 @@ mod tests {
     #[test]
     fn test_ecall_from_m_mode() {
         let mut cpu = Cpu::new();
-        cpu.csr.write(MTVEC, 0x80001000);
+        cpu.csr.write(csr::MTVEC, 0x80001000);
         cpu.bus.write32(0x80000000, 0x00000073); // ecall
         cpu.step();
 
         assert_eq!(cpu.pc, 0x80001000); // jumped to mtvec
-        assert_eq!(cpu.csr.read(MEPC), 0x80000000); // saved old PC
-        assert_eq!(cpu.csr.read(MCAUSE), ECALL_FROM_M); // cause = 11
+        assert_eq!(cpu.csr.read(csr::MEPC), 0x80000000); // saved old PC
+        assert_eq!(cpu.csr.read(csr::MCAUSE), csr::ECALL_FROM_M); // cause = 11
         assert_eq!(cpu.mode, PrivilegeMode::Machine);
     }
 
@@ -1367,72 +1354,72 @@ mod tests {
     fn test_ecall_from_s_mode() {
         let mut cpu = Cpu::new();
         cpu.mode = PrivilegeMode::Supervisor;
-        cpu.csr.write(MTVEC, 0x80001000);
+        cpu.csr.write(csr::MTVEC, 0x80001000);
         cpu.bus.write32(0x80000000, 0x00000073); // ecall
         cpu.step();
 
         assert_eq!(cpu.pc, 0x80001000);
-        assert_eq!(cpu.csr.read(MCAUSE), ECALL_FROM_S); // cause = 9
+        assert_eq!(cpu.csr.read(csr::MCAUSE), csr::ECALL_FROM_S); // cause = 9
         assert_eq!(cpu.mode, PrivilegeMode::Machine); // switched to M
     }
 
     #[test]
     fn test_ebreak() {
         let mut cpu = Cpu::new();
-        cpu.csr.write(MTVEC, 0x80001000);
+        cpu.csr.write(csr::MTVEC, 0x80001000);
         cpu.bus.write32(0x80000000, 0x00100073); // ebreak
         cpu.step();
 
         assert_eq!(cpu.pc, 0x80001000);
-        assert_eq!(cpu.csr.read(MEPC), 0x80000000);
-        assert_eq!(cpu.csr.read(MCAUSE), BREAKPOINT); // cause = 3
+        assert_eq!(cpu.csr.read(csr::MEPC), 0x80000000);
+        assert_eq!(cpu.csr.read(csr::MCAUSE), csr::BREAKPOINT); // cause = 3
     }
 
     #[test]
     fn test_trap_saves_mstatus() {
         let mut cpu = Cpu::new();
-        cpu.csr.write(MTVEC, 0x80001000);
-        cpu.csr.write(MSTATUS, MSTATUS_MIE); // MIE = 1
+        cpu.csr.write(csr::MTVEC, 0x80001000);
+        cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE); // MIE = 1
         cpu.bus.write32(0x80000000, 0x00000073); // ecall
         cpu.step();
 
-        let mstatus = cpu.csr.read(MSTATUS);
-        assert_eq!(mstatus & MSTATUS_MPIE, MSTATUS_MPIE); // MPIE = old MIE
-        assert_eq!(mstatus & MSTATUS_MIE, 0); // MIE = 0
-        assert_eq!(mstatus & MSTATUS_MPP, MSTATUS_MPP); // MPP = Machine (3)
+        let mstatus = cpu.csr.read(csr::MSTATUS);
+        assert_eq!(mstatus & csr::MSTATUS_MPIE, csr::MSTATUS_MPIE); // MPIE = old MIE
+        assert_eq!(mstatus & csr::MSTATUS_MIE, 0); // MIE = 0
+        assert_eq!(mstatus & csr::MSTATUS_MPP, csr::MSTATUS_MPP); // MPP = Machine (3)
     }
 
     #[test]
     fn test_trap_mpp_stores_previous_mode() {
         let mut cpu = Cpu::new();
         cpu.mode = PrivilegeMode::Supervisor;
-        cpu.csr.write(MTVEC, 0x80001000);
+        cpu.csr.write(csr::MTVEC, 0x80001000);
         cpu.bus.write32(0x80000000, 0x00000073); // ecall
         cpu.step();
 
-        let mstatus = cpu.csr.read(MSTATUS);
+        let mstatus = cpu.csr.read(csr::MSTATUS);
         // MPP should be 1 (Supervisor)
-        assert_eq!((mstatus & MSTATUS_MPP) >> 11, 1);
+        assert_eq!((mstatus & csr::MSTATUS_MPP) >> 11, 1);
     }
 
     #[test]
     fn test_ecall_no_pc_increment() {
         let mut cpu = Cpu::new();
-        cpu.csr.write(MTVEC, 0x80001000);
+        cpu.csr.write(csr::MTVEC, 0x80001000);
         cpu.bus.write32(0x80000000, 0x00000073); // ecall
         cpu.step();
 
         // PC should be mtvec, not mtvec + 4
         assert_eq!(cpu.pc, 0x80001000);
         // mepc should be the ecall instruction address
-        assert_eq!(cpu.csr.read(MEPC), 0x80000000);
+        assert_eq!(cpu.csr.read(csr::MEPC), 0x80000000);
     }
 
     #[test]
     fn test_trap_mtvec_direct_mode() {
         // mtvec mode = 0 (Direct): 모든 트랩이 base로
         let mut cpu = Cpu::new();
-        cpu.csr.write(MTVEC, 0x80001000); // mode = 0
+        cpu.csr.write(csr::MTVEC, 0x80001000); // mode = 0
         cpu.bus.write32(0x80000000, 0x00000073); // ecall
         cpu.step();
 
@@ -1443,7 +1430,7 @@ mod tests {
     fn test_trap_mtvec_direct_mode_strips_mode_bits() {
         // mtvec에 mode 비트가 있어도 base만 사용
         let mut cpu = Cpu::new();
-        cpu.csr.write(MTVEC, 0x80001000 | 0x0); // 명시적 Direct mode
+        cpu.csr.write(csr::MTVEC, 0x80001000 | 0x0); // 명시적 Direct mode
         cpu.bus.write32(0x80000000, 0x00000073); // ecall
         cpu.step();
 
@@ -1454,7 +1441,7 @@ mod tests {
     fn test_trap_mtvec_vectored_mode_exception() {
         // mtvec mode = 1 (Vectored): 예외는 여전히 base로
         let mut cpu = Cpu::new();
-        cpu.csr.write(MTVEC, 0x80001000 | 0x1); // mode = 1 (Vectored)
+        cpu.csr.write(csr::MTVEC, 0x80001000 | 0x1); // mode = 1 (Vectored)
         cpu.bus.write32(0x80000000, 0x00000073); // ecall (예외)
         cpu.step();
 
@@ -1466,7 +1453,7 @@ mod tests {
     fn test_trap_mtvec_vectored_mode_extracts_base() {
         // Vectored 모드에서 하위 2비트 제거 확인
         let mut cpu = Cpu::new();
-        cpu.csr.write(MTVEC, 0x80001001); // base=0x80001000, mode=1
+        cpu.csr.write(csr::MTVEC, 0x80001001); // base=0x80001000, mode=1
         cpu.bus.write32(0x80000000, 0x00100073); // ebreak
         cpu.step();
 
@@ -1479,8 +1466,8 @@ mod tests {
     #[test]
     fn test_mret_restores_pc() {
         let mut cpu = Cpu::new();
-        cpu.csr.write(MEPC, 0x80002000);
-        cpu.csr.write(MSTATUS, MSTATUS_MPP); // MPP = Machine (3)
+        cpu.csr.write(csr::MEPC, 0x80002000);
+        cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MPP); // MPP = Machine (3)
         cpu.bus.write32(0x80000000, 0x30200073); // mret
         cpu.step();
 
@@ -1490,9 +1477,9 @@ mod tests {
     #[test]
     fn test_mret_restores_mode_from_mpp() {
         let mut cpu = Cpu::new();
-        cpu.csr.write(MEPC, 0x80002000);
+        cpu.csr.write(csr::MEPC, 0x80002000);
         // MPP = Supervisor (1 << 11)
-        cpu.csr.write(MSTATUS, 1 << 11);
+        cpu.csr.write(csr::MSTATUS, 1 << 11);
         cpu.bus.write32(0x80000000, 0x30200073); // mret
         cpu.step();
 
@@ -1502,34 +1489,34 @@ mod tests {
     #[test]
     fn test_mret_restores_mie_from_mpie() {
         let mut cpu = Cpu::new();
-        cpu.csr.write(MEPC, 0x80002000);
-        cpu.csr.write(MSTATUS, MSTATUS_MPIE | MSTATUS_MPP); // MPIE=1
+        cpu.csr.write(csr::MEPC, 0x80002000);
+        cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MPIE | csr::MSTATUS_MPP); // MPIE=1
         cpu.bus.write32(0x80000000, 0x30200073); // mret
         cpu.step();
 
-        let mstatus = cpu.csr.read(MSTATUS);
-        assert_eq!(mstatus & MSTATUS_MIE, MSTATUS_MIE); // MIE = 1
-        assert_eq!(mstatus & MSTATUS_MPIE, MSTATUS_MPIE); // MPIE = 1
+        let mstatus = cpu.csr.read(csr::MSTATUS);
+        assert_eq!(mstatus & csr::MSTATUS_MIE, csr::MSTATUS_MIE); // MIE = 1
+        assert_eq!(mstatus & csr::MSTATUS_MPIE, csr::MSTATUS_MPIE); // MPIE = 1
     }
 
     #[test]
     fn test_mret_clears_mpp() {
         let mut cpu = Cpu::new();
-        cpu.csr.write(MEPC, 0x80002000);
-        cpu.csr.write(MSTATUS, MSTATUS_MPP); // MPP = Machine
+        cpu.csr.write(csr::MEPC, 0x80002000);
+        cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MPP); // MPP = Machine
         cpu.bus.write32(0x80000000, 0x30200073); // mret
         cpu.step();
 
-        let mstatus = cpu.csr.read(MSTATUS);
-        assert_eq!(mstatus & MSTATUS_MPP, 0); // MPP cleared
+        let mstatus = cpu.csr.read(csr::MSTATUS);
+        assert_eq!(mstatus & csr::MSTATUS_MPP, 0); // MPP cleared
     }
 
     #[test]
     fn test_sret_restores_pc() {
         let mut cpu = Cpu::new();
         cpu.mode = PrivilegeMode::Supervisor;
-        cpu.csr.write(SEPC, 0x80003000);
-        cpu.csr.write(SSTATUS, SSTATUS_SPP); // SPP = Supervisor
+        cpu.csr.write(csr::SEPC, 0x80003000);
+        cpu.csr.write(csr::SSTATUS, csr::SSTATUS_SPP); // SPP = Supervisor
         cpu.bus.write32(0x80000000, 0x10200073); // sret
         cpu.step();
 
@@ -1540,8 +1527,8 @@ mod tests {
     fn test_sret_restores_mode_from_spp() {
         let mut cpu = Cpu::new();
         cpu.mode = PrivilegeMode::Supervisor;
-        cpu.csr.write(SEPC, 0x80003000);
-        cpu.csr.write(SSTATUS, 0); // SPP = 0 (User)
+        cpu.csr.write(csr::SEPC, 0x80003000);
+        cpu.csr.write(csr::SSTATUS, 0); // SPP = 0 (User)
         cpu.bus.write32(0x80000000, 0x10200073); // sret
         cpu.step();
 
@@ -1552,34 +1539,34 @@ mod tests {
     fn test_sret_restores_sie_from_spie() {
         let mut cpu = Cpu::new();
         cpu.mode = PrivilegeMode::Supervisor;
-        cpu.csr.write(SEPC, 0x80003000);
-        cpu.csr.write(SSTATUS, SSTATUS_SPIE | SSTATUS_SPP); // SPIE=1, SPP=S
+        cpu.csr.write(csr::SEPC, 0x80003000);
+        cpu.csr.write(csr::SSTATUS, csr::SSTATUS_SPIE | csr::SSTATUS_SPP); // SPIE=1, SPP=S
         cpu.bus.write32(0x80000000, 0x10200073); // sret
         cpu.step();
 
-        let sstatus = cpu.csr.read(SSTATUS);
-        assert_eq!(sstatus & SSTATUS_SIE, SSTATUS_SIE); // SIE = 1 (from SPIE)
-        assert_eq!(sstatus & SSTATUS_SPIE, SSTATUS_SPIE); // SPIE = 1
+        let sstatus = cpu.csr.read(csr::SSTATUS);
+        assert_eq!(sstatus & csr::SSTATUS_SIE, csr::SSTATUS_SIE); // SIE = 1 (from SPIE)
+        assert_eq!(sstatus & csr::SSTATUS_SPIE, csr::SSTATUS_SPIE); // SPIE = 1
     }
 
     #[test]
     fn test_sret_clears_spp() {
         let mut cpu = Cpu::new();
         cpu.mode = PrivilegeMode::Supervisor;
-        cpu.csr.write(SEPC, 0x80003000);
-        cpu.csr.write(SSTATUS, SSTATUS_SPP); // SPP = Supervisor
+        cpu.csr.write(csr::SEPC, 0x80003000);
+        cpu.csr.write(csr::SSTATUS, csr::SSTATUS_SPP); // SPP = Supervisor
         cpu.bus.write32(0x80000000, 0x10200073); // sret
         cpu.step();
 
-        let sstatus = cpu.csr.read(SSTATUS);
-        assert_eq!(sstatus & SSTATUS_SPP, 0); // SPP cleared
+        let sstatus = cpu.csr.read(csr::SSTATUS);
+        assert_eq!(sstatus & csr::SSTATUS_SPP, 0); // SPP cleared
     }
 
     #[test]
     fn test_mret_no_pc_increment() {
         let mut cpu = Cpu::new();
-        cpu.csr.write(MEPC, 0x80002000);
-        cpu.csr.write(MSTATUS, MSTATUS_MPP);
+        cpu.csr.write(csr::MEPC, 0x80002000);
+        cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MPP);
         cpu.bus.write32(0x80000000, 0x30200073); // mret
         cpu.step();
 
@@ -1901,8 +1888,8 @@ mod tests {
     fn test_ecall_mret_roundtrip() {
         // ecall로 trap → mret으로 복귀하는 전체 흐름 테스트
         let mut cpu = Cpu::new();
-        cpu.csr.write(MTVEC, 0x80001000); // trap handler at 0x80001000
-        cpu.csr.write(MSTATUS, MSTATUS_MIE); // MIE = 1
+        cpu.csr.write(csr::MTVEC, 0x80001000); // trap handler at 0x80001000
+        cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE); // MIE = 1
 
         // Main code at 0x80000000
         cpu.bus.write32(0x80000000, 0x00000073); // ecall
@@ -1913,17 +1900,17 @@ mod tests {
         // Step 1: ecall
         cpu.step();
         assert_eq!(cpu.pc, 0x80001000); // jumped to handler
-        assert_eq!(cpu.csr.read(MEPC), 0x80000000); // saved PC
-        assert_eq!(cpu.csr.read(MCAUSE), ECALL_FROM_M);
-        let mstatus = cpu.csr.read(MSTATUS);
-        assert_eq!(mstatus & MSTATUS_MPIE, MSTATUS_MPIE); // MPIE = old MIE
-        assert_eq!(mstatus & MSTATUS_MIE, 0); // MIE = 0
+        assert_eq!(cpu.csr.read(csr::MEPC), 0x80000000); // saved PC
+        assert_eq!(cpu.csr.read(csr::MCAUSE), csr::ECALL_FROM_M);
+        let mstatus = cpu.csr.read(csr::MSTATUS);
+        assert_eq!(mstatus & csr::MSTATUS_MPIE, csr::MSTATUS_MPIE); // MPIE = old MIE
+        assert_eq!(mstatus & csr::MSTATUS_MIE, 0); // MIE = 0
 
         // Step 2: mret
         cpu.step();
         assert_eq!(cpu.pc, 0x80000000); // returned to ecall
-        let mstatus = cpu.csr.read(MSTATUS);
-        assert_eq!(mstatus & MSTATUS_MIE, MSTATUS_MIE); // MIE restored
+        let mstatus = cpu.csr.read(csr::MSTATUS);
+        assert_eq!(mstatus & csr::MSTATUS_MIE, csr::MSTATUS_MIE); // MIE restored
     }
 
     #[test]
@@ -1931,7 +1918,7 @@ mod tests {
         // S-mode에서 ecall → M-mode handler → mret으로 S-mode 복귀
         let mut cpu = Cpu::new();
         cpu.mode = PrivilegeMode::Supervisor;
-        cpu.csr.write(MTVEC, 0x80001000);
+        cpu.csr.write(csr::MTVEC, 0x80001000);
 
         cpu.bus.write32(0x80000000, 0x00000073); // ecall
         cpu.bus.write32(0x80001000, 0x30200073); // mret
@@ -1939,8 +1926,8 @@ mod tests {
         // Step 1: ecall from S-mode
         cpu.step();
         assert_eq!(cpu.mode, PrivilegeMode::Machine);
-        assert_eq!(cpu.csr.read(MCAUSE), ECALL_FROM_S);
-        let mpp = (cpu.csr.read(MSTATUS) & MSTATUS_MPP) >> 11;
+        assert_eq!(cpu.csr.read(csr::MCAUSE), csr::ECALL_FROM_S);
+        let mpp = (cpu.csr.read(csr::MSTATUS) & csr::MSTATUS_MPP) >> 11;
         assert_eq!(mpp, 1); // MPP = Supervisor
 
         // Step 2: mret
@@ -1953,7 +1940,7 @@ mod tests {
     fn test_uart_output_rv64() {
         // UART로 "RV64!" 출력 + 64비트 연산 검증
         let mut cpu = Cpu::new();
-        cpu.csr.write(MTVEC, 0x80002000); // ecall handler
+        cpu.csr.write(csr::MTVEC, 0x80002000); // ecall handler
 
         let program: Vec<u32> = vec![
             // x1 = 0x10000000 (UART address)
@@ -2006,7 +1993,7 @@ mod tests {
         // result: sum = 55
 
         let mut cpu = Cpu::new();
-        cpu.csr.write(MTVEC, 0x80002000);
+        cpu.csr.write(csr::MTVEC, 0x80002000);
 
         // x1 = sum, x2 = i, x3 = limit
         let program: Vec<u32> = vec![
