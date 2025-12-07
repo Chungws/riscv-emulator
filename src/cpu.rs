@@ -1832,4 +1832,145 @@ mod tests {
         assert_eq!(cpu.read_reg(1), 0xAAAA); // rd = CSR
         assert_eq!(cpu.csr.read(0x300), 0xAAAA); // CSR unchanged
     }
+
+    // === Integration Tests ===
+
+    #[test]
+    fn test_ecall_mret_roundtrip() {
+        // ecall로 trap → mret으로 복귀하는 전체 흐름 테스트
+        let mut cpu = Cpu::new();
+        cpu.csr.write(MTVEC, 0x80001000); // trap handler at 0x80001000
+        cpu.csr.write(MSTATUS, MSTATUS_MIE); // MIE = 1
+
+        // Main code at 0x80000000
+        cpu.bus.write32(0x80000000, 0x00000073); // ecall
+
+        // Handler at 0x80001000: just mret
+        cpu.bus.write32(0x80001000, 0x30200073); // mret
+
+        // Step 1: ecall
+        cpu.step();
+        assert_eq!(cpu.pc, 0x80001000); // jumped to handler
+        assert_eq!(cpu.csr.read(MEPC), 0x80000000); // saved PC
+        assert_eq!(cpu.csr.read(MCAUSE), ECALL_FROM_M);
+        let mstatus = cpu.csr.read(MSTATUS);
+        assert_eq!(mstatus & MSTATUS_MPIE, MSTATUS_MPIE); // MPIE = old MIE
+        assert_eq!(mstatus & MSTATUS_MIE, 0); // MIE = 0
+
+        // Step 2: mret
+        cpu.step();
+        assert_eq!(cpu.pc, 0x80000000); // returned to ecall
+        let mstatus = cpu.csr.read(MSTATUS);
+        assert_eq!(mstatus & MSTATUS_MIE, MSTATUS_MIE); // MIE restored
+    }
+
+    #[test]
+    fn test_ecall_mret_roundtrip_from_supervisor() {
+        // S-mode에서 ecall → M-mode handler → mret으로 S-mode 복귀
+        let mut cpu = Cpu::new();
+        cpu.mode = PrivilegeMode::Supervisor;
+        cpu.csr.write(MTVEC, 0x80001000);
+
+        cpu.bus.write32(0x80000000, 0x00000073); // ecall
+        cpu.bus.write32(0x80001000, 0x30200073); // mret
+
+        // Step 1: ecall from S-mode
+        cpu.step();
+        assert_eq!(cpu.mode, PrivilegeMode::Machine);
+        assert_eq!(cpu.csr.read(MCAUSE), ECALL_FROM_S);
+        let mpp = (cpu.csr.read(MSTATUS) & MSTATUS_MPP) >> 11;
+        assert_eq!(mpp, 1); // MPP = Supervisor
+
+        // Step 2: mret
+        cpu.step();
+        assert_eq!(cpu.mode, PrivilegeMode::Supervisor); // restored to S
+        assert_eq!(cpu.pc, 0x80000000);
+    }
+
+    #[test]
+    fn test_uart_output_rv64() {
+        // UART로 "RV64!" 출력 + 64비트 연산 검증
+        let mut cpu = Cpu::new();
+        cpu.csr.write(MTVEC, 0x80002000); // ecall handler
+
+        let program: Vec<u32> = vec![
+            // x1 = 0x10000000 (UART address)
+            0x100000B7, // lui x1, 0x10000
+            // 'R' output
+            0x05200113, // addi x2, x0, 82
+            0x00208023, // sb x2, 0(x1)
+            // 'V' output
+            0x05600113, // addi x2, x0, 86
+            0x00208023, // sb x2, 0(x1)
+            // '6' output
+            0x03600113, // addi x2, x0, 54
+            0x00208023, // sb x2, 0(x1)
+            // '4' output
+            0x03400113, // addi x2, x0, 52
+            0x00208023, // sb x2, 0(x1)
+            // 64-bit arithmetic test: -1 + 2 = 1
+            0xFFF00193, // addi x3, x0, -1        # x3 = 0xFFFFFFFFFFFFFFFF
+            0x00218213, // addi x4, x3, 2         # x4 = 1
+            // '!' output
+            0x02100113, // addi x2, x0, 33
+            0x00208023, // sb x2, 0(x1)
+            // '\n' output
+            0x00A00113, // addi x2, x0, 10
+            0x00208023, // sb x2, 0(x1)
+            // halt via ecall
+            0x00000073, // ecall
+        ];
+
+        cpu.load_program(&program);
+
+        // Run until ecall (16 instructions)
+        for _ in 0..16 {
+            cpu.step();
+        }
+
+        // Verify 64-bit arithmetic
+        assert_eq!(cpu.read_reg(3), 0xFFFFFFFFFFFFFFFF);
+        assert_eq!(cpu.read_reg(4), 1);
+
+        // Verify we hit ecall (PC jumped to mtvec)
+        assert_eq!(cpu.pc, 0x80002000);
+    }
+
+    #[test]
+    fn test_sum_1_to_10_loop() {
+        // 1부터 10까지 더하는 루프 테스트
+        // sum = 0; i = 1
+        // while (i < 11) { sum += i; i++; }
+        // result: sum = 55
+
+        let mut cpu = Cpu::new();
+        cpu.csr.write(MTVEC, 0x80002000);
+
+        // x1 = sum, x2 = i, x3 = limit
+        let program: Vec<u32> = vec![
+            // Initialize
+            0x00000093, // addi x1, x0, 0      # sum = 0
+            0x00100113, // addi x2, x0, 1      # i = 1
+            0x00B00193, // addi x3, x0, 11     # limit = 11
+            // Loop:
+            0x002080B3, // add x1, x1, x2      # sum += i
+            0x00110113, // addi x2, x2, 1      # i++
+            0xFE314CE3, // blt x2, x3, -8      # if i < 11, loop
+            // Done
+            0x00000073, // ecall
+        ];
+
+        cpu.load_program(&program);
+
+        // Run until trap
+        let mut count = 0;
+        while cpu.pc != 0x80002000 && count < 100 {
+            cpu.step();
+            count += 1;
+        }
+
+        assert_eq!(cpu.read_reg(1), 55); // sum = 1+2+...+10 = 55
+        assert_eq!(cpu.read_reg(2), 11); // i = 11 (loop ended)
+        assert_eq!(cpu.pc, 0x80002000); // hit ecall → trap
+    }
 }

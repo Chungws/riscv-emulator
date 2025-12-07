@@ -667,11 +667,14 @@ fn test_mret() {
 
 ### 체크리스트
 
-- [ ] ECALL 트랩 테스트
-- [ ] MRET 복귀 테스트
-- [ ] SRET 복귀 테스트
-- [ ] mstatus 비트 변경 테스트
-- [ ] `cargo test` 전체 통과
+- [x] ECALL 트랩 테스트
+- [x] MRET 복귀 테스트
+- [x] SRET 복귀 테스트
+- [x] mstatus 비트 변경 테스트
+- [x] ECALL → MRET 라운드트립 테스트
+- [x] UART 출력 통합 테스트
+- [x] Sum 1-10 루프 테스트
+- [x] `cargo test` 전체 통과 (139 tests)
 
 ---
 
