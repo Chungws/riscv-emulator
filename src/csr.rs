@@ -20,6 +20,13 @@ pub const MSTATUS_SIE: u64 = 0x2;
 pub const MSTATUS_SPIE: u64 = 0x20;
 pub const MSTATUS_SPP: u64 = 0x100;
 
+pub const ECALL_FROM_U: u64 = 8;
+pub const ECALL_FROM_S: u64 = 9;
+pub const ECALL_FROM_M: u64 = 11;
+pub const BREAKPOINT: u64 = 3;
+
+pub const INTERRUPT_BIT: u64 = 1 << 63;
+
 pub struct Csr {
     data: HashMap<u16, u64>,
 }

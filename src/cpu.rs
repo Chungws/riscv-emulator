@@ -1,6 +1,14 @@
 use core::panic;
 
-use crate::{Bus, Csr, debug_log, decoder, devices::DRAM_BASE};
+use crate::{
+    Bus, Csr,
+    csr::{
+        BREAKPOINT, ECALL_FROM_M, ECALL_FROM_S, ECALL_FROM_U, INTERRUPT_BIT, MCAUSE, MEPC, MSTATUS,
+        MSTATUS_MIE, MSTATUS_MPIE, MSTATUS_MPP, MTVAL, MTVEC,
+    },
+    debug_log, decoder,
+    devices::DRAM_BASE,
+};
 
 const OP_IMM: u32 = 0x13;
 const OP_IMM_32: u32 = 0x1B;
@@ -64,6 +72,42 @@ impl Cpu {
         }
     }
 
+    pub fn trap(&mut self, cause: u64, tval: u64) {
+        let is_interrupt = (cause & INTERRUPT_BIT) > 0;
+        self.csr.write(MEPC, self.pc);
+        self.csr.write(MCAUSE, cause);
+        self.csr.write(MTVAL, tval);
+
+        let mut mstatus = self.csr.read(MSTATUS);
+        let mie = (mstatus & MSTATUS_MIE) != 0;
+        if mie {
+            mstatus |= MSTATUS_MPIE;
+        } else {
+            mstatus &= !MSTATUS_MPIE;
+        }
+        mstatus &= !MSTATUS_MIE;
+
+        mstatus &= !MSTATUS_MPP;
+        mstatus |= (self.mode as u64) << 11;
+
+        self.csr.write(MSTATUS, mstatus);
+
+        self.mode = PrivilegeMode::Machine;
+
+        let mtvec = self.csr.read(MTVEC);
+        let mode = mtvec & 0x3;
+        let base = mtvec & !0x3;
+        if mode == 0 {
+            self.pc = base;
+        } else {
+            if is_interrupt {
+                self.pc = base + 4 * (cause & 0x3FF);
+            } else {
+                self.pc = base;
+            }
+        }
+    }
+
     pub fn run(&mut self) {
         while !self.halted {
             self.step();
@@ -96,7 +140,11 @@ impl Cpu {
             }
             LUI => self.execute_lui(inst),
             AUIPC => self.execute_auipc(inst),
-            SYSTEM => self.execute_system(inst),
+            SYSTEM => {
+                if self.execute_system(inst) {
+                    return; // trap 시 PC 증가 안함
+                }
+            }
             _ => panic!("Not Supported Opcode: {:#x}", op),
         }
         self.pc += 4;
@@ -551,7 +599,7 @@ impl Cpu {
         self.write_reg(rd, (self.pc as i64).wrapping_add(imm as i64) as u64);
     }
 
-    fn execute_system(&mut self, inst: u32) {
+    fn execute_system(&mut self, inst: u32) -> bool {
         debug_log!("SYSTEM");
         let funct3 = decoder::funct3(inst);
         let rd = decoder::rd(inst);
@@ -559,15 +607,30 @@ impl Cpu {
         let rs1_val = self.read_reg(rs1);
         let csr_addr = decoder::csr_addr(inst);
 
-        match funct3 {
+        let taken = match funct3 {
             0x0 => match csr_addr {
                 0x000 => {
                     debug_log!("ECALL");
-                    self.halted = true;
+                    match self.mode {
+                        PrivilegeMode::Machine => {
+                            debug_log!("ECALL Machine Mode");
+                            self.trap(ECALL_FROM_M, 0);
+                        }
+                        PrivilegeMode::Supervisor => {
+                            debug_log!("ECALL Supervisor Mode");
+                            self.trap(ECALL_FROM_S, 0);
+                        }
+                        PrivilegeMode::User => {
+                            debug_log!("ECALL User Mode");
+                            self.trap(ECALL_FROM_U, 0);
+                        }
+                    }
+                    true
                 }
                 0x001 => {
                     debug_log!("EBREAK");
-                    self.halted = true;
+                    self.trap(BREAKPOINT, 0);
+                    true
                 }
                 _ => panic!("Unknown SYSTEM csr_addr: {:#x}", csr_addr),
             },
@@ -582,6 +645,7 @@ impl Cpu {
                 let old = self.csr.read(csr_addr);
                 self.csr.write(csr_addr, rs1_val);
                 self.write_reg(rd, old);
+                false
             }
             0x2 => {
                 debug_log!(
@@ -596,6 +660,7 @@ impl Cpu {
                     self.csr.write(csr_addr, old | rs1_val);
                 }
                 self.write_reg(rd, old);
+                false
             }
             0x3 => {
                 debug_log!(
@@ -610,6 +675,7 @@ impl Cpu {
                     self.csr.write(csr_addr, old & !rs1_val);
                 }
                 self.write_reg(rd, old);
+                false
             }
             0x5 => {
                 debug_log!(
@@ -622,6 +688,7 @@ impl Cpu {
                 let old = self.csr.read(csr_addr);
                 self.csr.write(csr_addr, rs1 as u64);
                 self.write_reg(rd, old);
+                false
             }
             0x6 => {
                 debug_log!(
@@ -636,6 +703,7 @@ impl Cpu {
                     self.csr.write(csr_addr, old | (rs1 as u64));
                 }
                 self.write_reg(rd, old);
+                false
             }
             0x7 => {
                 debug_log!(
@@ -650,15 +718,21 @@ impl Cpu {
                     self.csr.write(csr_addr, old & !(rs1 as u64));
                 }
                 self.write_reg(rd, old);
+                false
             }
             _ => panic!("Unknown SYSTEM csr_addr: {:#x}", csr_addr),
-        }
+        };
+        taken
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::csr::{
+        BREAKPOINT, ECALL_FROM_M, ECALL_FROM_S, MCAUSE, MEPC, MSTATUS, MSTATUS_MIE, MSTATUS_MPIE,
+        MSTATUS_MPP, MTVEC,
+    };
 
     #[test]
     fn test_cpu_init() {
@@ -1187,30 +1261,130 @@ mod tests {
         assert_eq!(cpu.read_reg(1), 0x80001000 + 0x1000);
     }
 
+    // === Trap Tests ===
+
     #[test]
-    fn test_ecall() {
+    fn test_ecall_from_m_mode() {
         let mut cpu = Cpu::new();
-        cpu.bus.write32(0x80000000, 0x00000073);
+        cpu.csr.write(MTVEC, 0x80001000);
+        cpu.bus.write32(0x80000000, 0x00000073); // ecall
         cpu.step();
-        assert!(cpu.halted);
+
+        assert_eq!(cpu.pc, 0x80001000); // jumped to mtvec
+        assert_eq!(cpu.csr.read(MEPC), 0x80000000); // saved old PC
+        assert_eq!(cpu.csr.read(MCAUSE), ECALL_FROM_M); // cause = 11
+        assert_eq!(cpu.mode, PrivilegeMode::Machine);
+    }
+
+    #[test]
+    fn test_ecall_from_s_mode() {
+        let mut cpu = Cpu::new();
+        cpu.mode = PrivilegeMode::Supervisor;
+        cpu.csr.write(MTVEC, 0x80001000);
+        cpu.bus.write32(0x80000000, 0x00000073); // ecall
+        cpu.step();
+
+        assert_eq!(cpu.pc, 0x80001000);
+        assert_eq!(cpu.csr.read(MCAUSE), ECALL_FROM_S); // cause = 9
+        assert_eq!(cpu.mode, PrivilegeMode::Machine); // switched to M
     }
 
     #[test]
     fn test_ebreak() {
         let mut cpu = Cpu::new();
-        cpu.bus.write32(0x80000000, 0x00100073);
+        cpu.csr.write(MTVEC, 0x80001000);
+        cpu.bus.write32(0x80000000, 0x00100073); // ebreak
         cpu.step();
-        assert!(cpu.halted);
+
+        assert_eq!(cpu.pc, 0x80001000);
+        assert_eq!(cpu.csr.read(MEPC), 0x80000000);
+        assert_eq!(cpu.csr.read(MCAUSE), BREAKPOINT); // cause = 3
     }
 
     #[test]
-    fn test_ecall_check_a0() {
+    fn test_trap_saves_mstatus() {
         let mut cpu = Cpu::new();
-        cpu.write_reg(10, 0);
-        cpu.bus.write32(0x80000000, 0x00000073);
+        cpu.csr.write(MTVEC, 0x80001000);
+        cpu.csr.write(MSTATUS, MSTATUS_MIE); // MIE = 1
+        cpu.bus.write32(0x80000000, 0x00000073); // ecall
         cpu.step();
-        assert!(cpu.halted);
-        assert_eq!(cpu.read_reg(10), 0);
+
+        let mstatus = cpu.csr.read(MSTATUS);
+        assert_eq!(mstatus & MSTATUS_MPIE, MSTATUS_MPIE); // MPIE = old MIE
+        assert_eq!(mstatus & MSTATUS_MIE, 0); // MIE = 0
+        assert_eq!(mstatus & MSTATUS_MPP, MSTATUS_MPP); // MPP = Machine (3)
+    }
+
+    #[test]
+    fn test_trap_mpp_stores_previous_mode() {
+        let mut cpu = Cpu::new();
+        cpu.mode = PrivilegeMode::Supervisor;
+        cpu.csr.write(MTVEC, 0x80001000);
+        cpu.bus.write32(0x80000000, 0x00000073); // ecall
+        cpu.step();
+
+        let mstatus = cpu.csr.read(MSTATUS);
+        // MPP should be 1 (Supervisor)
+        assert_eq!((mstatus & MSTATUS_MPP) >> 11, 1);
+    }
+
+    #[test]
+    fn test_ecall_no_pc_increment() {
+        let mut cpu = Cpu::new();
+        cpu.csr.write(MTVEC, 0x80001000);
+        cpu.bus.write32(0x80000000, 0x00000073); // ecall
+        cpu.step();
+
+        // PC should be mtvec, not mtvec + 4
+        assert_eq!(cpu.pc, 0x80001000);
+        // mepc should be the ecall instruction address
+        assert_eq!(cpu.csr.read(MEPC), 0x80000000);
+    }
+
+    #[test]
+    fn test_trap_mtvec_direct_mode() {
+        // mtvec mode = 0 (Direct): 모든 트랩이 base로
+        let mut cpu = Cpu::new();
+        cpu.csr.write(MTVEC, 0x80001000); // mode = 0
+        cpu.bus.write32(0x80000000, 0x00000073); // ecall
+        cpu.step();
+
+        assert_eq!(cpu.pc, 0x80001000);
+    }
+
+    #[test]
+    fn test_trap_mtvec_direct_mode_strips_mode_bits() {
+        // mtvec에 mode 비트가 있어도 base만 사용
+        let mut cpu = Cpu::new();
+        cpu.csr.write(MTVEC, 0x80001000 | 0x0); // 명시적 Direct mode
+        cpu.bus.write32(0x80000000, 0x00000073); // ecall
+        cpu.step();
+
+        assert_eq!(cpu.pc, 0x80001000);
+    }
+
+    #[test]
+    fn test_trap_mtvec_vectored_mode_exception() {
+        // mtvec mode = 1 (Vectored): 예외는 여전히 base로
+        let mut cpu = Cpu::new();
+        cpu.csr.write(MTVEC, 0x80001000 | 0x1); // mode = 1 (Vectored)
+        cpu.bus.write32(0x80000000, 0x00000073); // ecall (예외)
+        cpu.step();
+
+        // 예외는 Vectored 모드에서도 base로 점프
+        assert_eq!(cpu.pc, 0x80001000);
+    }
+
+    #[test]
+    fn test_trap_mtvec_vectored_mode_extracts_base() {
+        // Vectored 모드에서 하위 2비트 제거 확인
+        let mut cpu = Cpu::new();
+        cpu.csr.write(MTVEC, 0x80001001); // base=0x80001000, mode=1
+        cpu.bus.write32(0x80000000, 0x00100073); // ebreak
+        cpu.step();
+
+        // base = mtvec & !0x3 = 0x80001000
+        assert_eq!(cpu.pc, 0x80001000);
     }
 
     // === RV64I W suffix operations ===
