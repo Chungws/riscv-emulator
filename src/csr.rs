@@ -6,6 +6,7 @@ pub const MEPC: u16 = 0x341;
 pub const MCAUSE: u16 = 0x342;
 pub const MTVAL: u16 = 0x343;
 pub const MHARTID: u16 = 0xF14;
+pub const MISA: u16 = 0x301;
 
 pub const SSTATUS: u16 = 0x100;
 pub const STVEC: u16 = 0x105;

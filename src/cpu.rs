@@ -3,9 +3,9 @@ use core::panic;
 use crate::{
     Bus, Csr,
     csr::{
-        BREAKPOINT, ECALL_FROM_M, ECALL_FROM_S, ECALL_FROM_U, INTERRUPT_BIT, MCAUSE, MEPC, MSTATUS,
-        MSTATUS_MIE, MSTATUS_MPIE, MSTATUS_MPP, MSTATUS_SIE, MSTATUS_SPIE, MSTATUS_SPP, MTVAL,
-        MTVEC, SEPC, SSTATUS,
+        BREAKPOINT, ECALL_FROM_M, ECALL_FROM_S, ECALL_FROM_U, INTERRUPT_BIT, MCAUSE, MEPC, MHARTID,
+        MISA, MSTATUS, MSTATUS_MIE, MSTATUS_MPIE, MSTATUS_MPP, MSTATUS_SIE, MSTATUS_SPIE,
+        MSTATUS_SPP, MTVAL, MTVEC, SEPC, SSTATUS,
     },
     debug_log, decoder,
     devices::DRAM_BASE,
@@ -42,9 +42,20 @@ pub struct Cpu {
 
 impl Cpu {
     pub fn new() -> Self {
+        let mut csr = Csr::new();
+        // misa: RV64I + S + U 지원
+        // 비트 63-62: MXL=2 (64비트)
+        // 비트 8: I (기본 정수)
+        // 비트 18: S (Supervisor)
+        // 비트 20: U (User)
+        csr.write(MISA, 0x8000000000140100);
+
+        // mhartid: single core = 0
+        csr.write(MHARTID, 0);
+
         Self {
             regs: [0; 32],
-            csr: Csr::new(),
+            csr: csr,
             pc: DRAM_BASE,
             mode: PrivilegeMode::Machine,
             bus: Bus::new(),
@@ -782,8 +793,8 @@ impl Cpu {
 mod tests {
     use super::*;
     use crate::csr::{
-        BREAKPOINT, ECALL_FROM_M, ECALL_FROM_S, MCAUSE, MEPC, MSTATUS, MSTATUS_MIE, MSTATUS_MPIE,
-        MSTATUS_MPP, MSTATUS_SIE, MSTATUS_SPIE, MSTATUS_SPP, MTVEC, SEPC, SSTATUS,
+        BREAKPOINT, ECALL_FROM_M, ECALL_FROM_S, MCAUSE, MEPC, MHARTID, MISA, MSTATUS, MSTATUS_MIE,
+        MSTATUS_MPIE, MSTATUS_MPP, MSTATUS_SIE, MSTATUS_SPIE, MSTATUS_SPP, MTVEC, SEPC, SSTATUS,
     };
 
     #[test]
@@ -793,6 +804,30 @@ mod tests {
             assert_eq!(cpu.regs[i], 0);
         }
         assert_eq!(cpu.pc, 0x80000000);
+    }
+
+    #[test]
+    fn test_misa_init() {
+        let cpu = Cpu::new();
+        let misa = cpu.csr.read(MISA);
+
+        // MXL = 2 (64-bit)
+        assert_eq!(misa >> 62, 2);
+
+        // I extension (bit 8)
+        assert_ne!(misa & (1 << 8), 0);
+
+        // S extension (bit 18)
+        assert_ne!(misa & (1 << 18), 0);
+
+        // U extension (bit 20)
+        assert_ne!(misa & (1 << 20), 0);
+    }
+
+    #[test]
+    fn test_mhartid_init() {
+        let cpu = Cpu::new();
+        assert_eq!(cpu.csr.read(MHARTID), 0); // single core
     }
 
     #[test]

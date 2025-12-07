@@ -281,7 +281,7 @@ pub const MSTATUS_SPP: u64 = 1 << 8;
 
 - [x] CSR 주소 상수 정의
 - [x] mstatus 비트 마스크 정의
-- [ ] 초기값 설정 (misa 등)
+- [x] 초기값 설정 (misa, mhartid)
 - [x] `cargo build` 확인
 
 ---
