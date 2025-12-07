@@ -4,7 +4,8 @@ use crate::{
     Bus, Csr,
     csr::{
         BREAKPOINT, ECALL_FROM_M, ECALL_FROM_S, ECALL_FROM_U, INTERRUPT_BIT, MCAUSE, MEPC, MSTATUS,
-        MSTATUS_MIE, MSTATUS_MPIE, MSTATUS_MPP, MTVAL, MTVEC,
+        MSTATUS_MIE, MSTATUS_MPIE, MSTATUS_MPP, MSTATUS_SIE, MSTATUS_SPIE, MSTATUS_SPP, MTVAL,
+        MTVEC, SEPC, SSTATUS,
     },
     debug_log, decoder,
     devices::DRAM_BASE,
@@ -608,32 +609,83 @@ impl Cpu {
         let csr_addr = decoder::csr_addr(inst);
 
         let taken = match funct3 {
-            0x0 => match csr_addr {
-                0x000 => {
-                    debug_log!("ECALL");
-                    match self.mode {
-                        PrivilegeMode::Machine => {
-                            debug_log!("ECALL Machine Mode");
-                            self.trap(ECALL_FROM_M, 0);
+            0x0 => {
+                let funct7 = decoder::funct7(inst);
+                let rs2 = decoder::rs2(inst);
+                match (funct7, rs2) {
+                    (0x00, 0x00) => {
+                        debug_log!("ECALL");
+                        match self.mode {
+                            PrivilegeMode::Machine => {
+                                debug_log!("ECALL Machine Mode");
+                                self.trap(ECALL_FROM_M, 0);
+                            }
+                            PrivilegeMode::Supervisor => {
+                                debug_log!("ECALL Supervisor Mode");
+                                self.trap(ECALL_FROM_S, 0);
+                            }
+                            PrivilegeMode::User => {
+                                debug_log!("ECALL User Mode");
+                                self.trap(ECALL_FROM_U, 0);
+                            }
                         }
-                        PrivilegeMode::Supervisor => {
-                            debug_log!("ECALL Supervisor Mode");
-                            self.trap(ECALL_FROM_S, 0);
-                        }
-                        PrivilegeMode::User => {
-                            debug_log!("ECALL User Mode");
-                            self.trap(ECALL_FROM_U, 0);
-                        }
+                        true
                     }
-                    true
+                    (0x00, 0x01) => {
+                        debug_log!("EBREAK");
+                        self.trap(BREAKPOINT, 0);
+                        true
+                    }
+                    (0x18, 0x02) => {
+                        debug_log!("MRET");
+                        self.pc = self.csr.read(MEPC);
+
+                        let mut mstatus = self.csr.read(MSTATUS);
+                        let mpie = (mstatus & MSTATUS_MPIE) != 0;
+                        if mpie {
+                            mstatus |= MSTATUS_MIE;
+                        } else {
+                            mstatus &= !MSTATUS_MIE;
+                        }
+                        mstatus |= MSTATUS_MPIE;
+
+                        let mpp = (mstatus & MSTATUS_MPP) >> 11;
+                        self.mode = match mpp {
+                            0 => PrivilegeMode::User,
+                            1 => PrivilegeMode::Supervisor,
+                            3 => PrivilegeMode::Machine,
+                            _ => panic!("Not Avaliable PrivilegeMode"),
+                        };
+                        mstatus &= !MSTATUS_MPP;
+                        self.csr.write(MSTATUS, mstatus);
+                        true
+                    }
+                    (0x08, 0x02) => {
+                        debug_log!("SRET");
+                        self.pc = self.csr.read(SEPC);
+
+                        let mut mstatus = self.csr.read(SSTATUS);
+                        let spie = (mstatus & MSTATUS_SPIE) != 0;
+                        if spie {
+                            mstatus |= MSTATUS_SIE;
+                        } else {
+                            mstatus &= !MSTATUS_SIE;
+                        }
+                        mstatus |= MSTATUS_SPIE;
+
+                        let spp = (mstatus & MSTATUS_SPP) != 0;
+                        self.mode = if spp {
+                            PrivilegeMode::Supervisor
+                        } else {
+                            PrivilegeMode::User
+                        };
+                        mstatus &= !MSTATUS_SPP;
+                        self.csr.write(MSTATUS, mstatus);
+                        true
+                    }
+                    _ => panic!("Not Implemented!"),
                 }
-                0x001 => {
-                    debug_log!("EBREAK");
-                    self.trap(BREAKPOINT, 0);
-                    true
-                }
-                _ => panic!("Unknown SYSTEM csr_addr: {:#x}", csr_addr),
-            },
+            }
             0x1 => {
                 debug_log!(
                     "CSRRW rd={}, rs1={}, rs1_val={}, csr_addr={}",
@@ -731,7 +783,7 @@ mod tests {
     use super::*;
     use crate::csr::{
         BREAKPOINT, ECALL_FROM_M, ECALL_FROM_S, MCAUSE, MEPC, MSTATUS, MSTATUS_MIE, MSTATUS_MPIE,
-        MSTATUS_MPP, MTVEC,
+        MSTATUS_MPP, MSTATUS_SIE, MSTATUS_SPIE, MSTATUS_SPP, MTVEC, SEPC, SSTATUS,
     };
 
     #[test]
@@ -1385,6 +1437,92 @@ mod tests {
 
         // base = mtvec & !0x3 = 0x80001000
         assert_eq!(cpu.pc, 0x80001000);
+    }
+
+    // === MRET/SRET Tests ===
+
+    #[test]
+    fn test_mret_restores_pc() {
+        let mut cpu = Cpu::new();
+        cpu.csr.write(MEPC, 0x80002000);
+        cpu.csr.write(MSTATUS, MSTATUS_MPP); // MPP = Machine (3)
+        cpu.bus.write32(0x80000000, 0x30200073); // mret
+        cpu.step();
+
+        assert_eq!(cpu.pc, 0x80002000);
+    }
+
+    #[test]
+    fn test_mret_restores_mode_from_mpp() {
+        let mut cpu = Cpu::new();
+        cpu.csr.write(MEPC, 0x80002000);
+        // MPP = Supervisor (1 << 11)
+        cpu.csr.write(MSTATUS, 1 << 11);
+        cpu.bus.write32(0x80000000, 0x30200073); // mret
+        cpu.step();
+
+        assert_eq!(cpu.mode, PrivilegeMode::Supervisor);
+    }
+
+    #[test]
+    fn test_mret_restores_mie_from_mpie() {
+        let mut cpu = Cpu::new();
+        cpu.csr.write(MEPC, 0x80002000);
+        cpu.csr.write(MSTATUS, MSTATUS_MPIE | MSTATUS_MPP); // MPIE=1
+        cpu.bus.write32(0x80000000, 0x30200073); // mret
+        cpu.step();
+
+        let mstatus = cpu.csr.read(MSTATUS);
+        assert_eq!(mstatus & MSTATUS_MIE, MSTATUS_MIE); // MIE = 1
+        assert_eq!(mstatus & MSTATUS_MPIE, MSTATUS_MPIE); // MPIE = 1
+    }
+
+    #[test]
+    fn test_mret_clears_mpp() {
+        let mut cpu = Cpu::new();
+        cpu.csr.write(MEPC, 0x80002000);
+        cpu.csr.write(MSTATUS, MSTATUS_MPP); // MPP = Machine
+        cpu.bus.write32(0x80000000, 0x30200073); // mret
+        cpu.step();
+
+        let mstatus = cpu.csr.read(MSTATUS);
+        assert_eq!(mstatus & MSTATUS_MPP, 0); // MPP cleared
+    }
+
+    #[test]
+    fn test_sret_restores_pc() {
+        let mut cpu = Cpu::new();
+        cpu.mode = PrivilegeMode::Supervisor;
+        cpu.csr.write(SEPC, 0x80003000);
+        cpu.csr.write(SSTATUS, MSTATUS_SPP); // SPP = Supervisor
+        cpu.bus.write32(0x80000000, 0x10200073); // sret
+        cpu.step();
+
+        assert_eq!(cpu.pc, 0x80003000);
+    }
+
+    #[test]
+    fn test_sret_restores_mode_from_spp() {
+        let mut cpu = Cpu::new();
+        cpu.mode = PrivilegeMode::Supervisor;
+        cpu.csr.write(SEPC, 0x80003000);
+        cpu.csr.write(SSTATUS, 0); // SPP = 0 (User)
+        cpu.bus.write32(0x80000000, 0x10200073); // sret
+        cpu.step();
+
+        assert_eq!(cpu.mode, PrivilegeMode::User);
+    }
+
+    #[test]
+    fn test_mret_no_pc_increment() {
+        let mut cpu = Cpu::new();
+        cpu.csr.write(MEPC, 0x80002000);
+        cpu.csr.write(MSTATUS, MSTATUS_MPP);
+        cpu.bus.write32(0x80000000, 0x30200073); // mret
+        cpu.step();
+
+        // PC should be mepc, not mepc + 4
+        assert_eq!(cpu.pc, 0x80002000);
     }
 
     // === RV64I W suffix operations ===
