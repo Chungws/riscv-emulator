@@ -101,6 +101,10 @@ impl Bus {
             panic!("Invalid address: {:#x}", addr);
         }
     }
+
+    pub fn tick(&mut self) {
+        self.clint.tick();
+    }
 }
 
 #[cfg(test)]

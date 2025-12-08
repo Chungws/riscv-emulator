@@ -55,6 +55,10 @@ impl Clint {
             _ => panic!("Not Implemented"),
         }
     }
+
+    pub fn tick(&mut self) {
+        self.mtime += 1;
+    }
 }
 
 #[cfg(test)]
@@ -108,5 +112,27 @@ mod tests {
         let large_value: u64 = 0xFFFF_FFFF_FFFF_FFFF;
         clint.write64(MTIME_OFFSET, large_value);
         assert_eq!(clint.read64(MTIME_OFFSET), large_value);
+    }
+
+    #[test]
+    fn test_clint_tick() {
+        let mut clint = Clint::new();
+        assert_eq!(clint.read64(MTIME_OFFSET), 0);
+
+        clint.tick();
+        assert_eq!(clint.read64(MTIME_OFFSET), 1);
+
+        clint.tick();
+        clint.tick();
+        assert_eq!(clint.read64(MTIME_OFFSET), 3);
+    }
+
+    #[test]
+    fn test_clint_tick_multiple() {
+        let mut clint = Clint::new();
+        for _ in 0..100 {
+            clint.tick();
+        }
+        assert_eq!(clint.read64(MTIME_OFFSET), 100);
     }
 }

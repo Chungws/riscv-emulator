@@ -121,6 +121,7 @@ impl Cpu {
         let inst = self.fetch();
         let op = decoder::opcode(inst);
 
+        self.bus.tick();
         match op {
             OP_IMM => self.execute_op_imm(inst),
             OP_IMM_32 => self.execute_op_imm_32(inst),

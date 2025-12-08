@@ -1240,3 +1240,33 @@ fn test_sum_1_to_10_loop() {
     assert_eq!(cpu.read_reg(2), 11); // i = 11 (loop ended)
     assert_eq!(cpu.pc, 0x80002000); // hit ecall → trap
 }
+
+// === CLINT mtime tick 테스트 ===
+
+#[test]
+fn test_mtime_increments_on_step() {
+    let mut cpu = Cpu::new();
+    // NOP: addi x0, x0, 0
+    cpu.bus.write32(0x80000000, 0x00000013);
+
+    let mtime_before = cpu.bus.read64(0x200BFF8);
+    cpu.step();
+    let mtime_after = cpu.bus.read64(0x200BFF8);
+
+    assert_eq!(mtime_after, mtime_before + 1);
+}
+
+#[test]
+fn test_mtime_increments_multiple_steps() {
+    let mut cpu = Cpu::new();
+    // NOP: addi x0, x0, 0
+    for i in 0..10 {
+        cpu.bus.write32(0x80000000 + i * 4, 0x00000013);
+    }
+
+    for _ in 0..10 {
+        cpu.step();
+    }
+
+    assert_eq!(cpu.bus.read64(0x200BFF8), 10);
+}
