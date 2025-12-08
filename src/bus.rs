@@ -1,6 +1,7 @@
-use crate::devices;
+use crate::devices::{self, CLINT_BASE};
 
 pub struct Bus {
+    clint: devices::Clint,
     memory: devices::Memory,
     uart: devices::Uart,
 }
@@ -8,6 +9,7 @@ pub struct Bus {
 impl Bus {
     pub fn new() -> Self {
         Self {
+            clint: devices::Clint::new(),
             memory: devices::Memory::new(),
             uart: devices::Uart::new(),
         }
@@ -34,7 +36,9 @@ impl Bus {
     }
 
     pub fn read32(&self, addr: u64) -> u32 {
-        if addr >= devices::UART_BASE && addr < devices::UART_BASE + devices::UART_SIZE {
+        if addr >= devices::CLINT_BASE && addr < devices::CLINT_BASE + devices::CLINT_SIZE {
+            self.clint.read32(addr - CLINT_BASE)
+        } else if addr >= devices::UART_BASE && addr < devices::UART_BASE + devices::UART_SIZE {
             self.uart.read8() as u32
         } else if addr >= devices::DRAM_BASE {
             self.memory.read32(addr)
@@ -44,7 +48,9 @@ impl Bus {
     }
 
     pub fn read64(&self, addr: u64) -> u64 {
-        if addr >= devices::UART_BASE && addr < devices::UART_BASE + devices::UART_SIZE {
+        if addr >= devices::CLINT_BASE && addr < devices::CLINT_BASE + devices::CLINT_SIZE {
+            self.clint.read64(addr - CLINT_BASE)
+        } else if addr >= devices::UART_BASE && addr < devices::UART_BASE + devices::UART_SIZE {
             self.uart.read8() as u64
         } else if addr >= devices::DRAM_BASE {
             self.memory.read64(addr)
@@ -73,7 +79,9 @@ impl Bus {
     }
 
     pub fn write32(&mut self, addr: u64, value: u32) {
-        if addr >= devices::UART_BASE && addr < devices::UART_BASE + devices::UART_SIZE {
+        if addr >= devices::CLINT_BASE && addr < devices::CLINT_BASE + devices::CLINT_SIZE {
+            self.clint.write32(addr - CLINT_BASE, value);
+        } else if addr >= devices::UART_BASE && addr < devices::UART_BASE + devices::UART_SIZE {
             self.uart.write8(value as u8);
         } else if addr >= devices::DRAM_BASE {
             self.memory.write32(addr, value);
@@ -83,7 +91,9 @@ impl Bus {
     }
 
     pub fn write64(&mut self, addr: u64, value: u64) {
-        if addr >= devices::UART_BASE && addr < devices::UART_BASE + devices::UART_SIZE {
+        if addr >= devices::CLINT_BASE && addr < devices::CLINT_BASE + devices::CLINT_SIZE {
+            self.clint.write64(addr - CLINT_BASE, value);
+        } else if addr >= devices::UART_BASE && addr < devices::UART_BASE + devices::UART_SIZE {
             self.uart.write8(value as u8);
         } else if addr >= devices::DRAM_BASE {
             self.memory.write64(addr, value);
@@ -135,6 +145,28 @@ mod tests {
     fn test_bus_uart_write8() {
         let mut bus = Bus::new();
         bus.write8(0x10000000, b'X'); // 출력됨
+    }
+
+    // CLINT 테스트
+    #[test]
+    fn test_bus_clint_mtime() {
+        let mut bus = Bus::new();
+        bus.write64(0x200BFF8, 12345); // CLINT_BASE + MTIME_OFFSET
+        assert_eq!(bus.read64(0x200BFF8), 12345);
+    }
+
+    #[test]
+    fn test_bus_clint_mtimecmp() {
+        let mut bus = Bus::new();
+        bus.write64(0x2004000, 99999); // CLINT_BASE + MTIMECMP_OFFSET
+        assert_eq!(bus.read64(0x2004000), 99999);
+    }
+
+    #[test]
+    fn test_bus_clint_msip() {
+        let mut bus = Bus::new();
+        bus.write32(0x2000000, 1); // CLINT_BASE + MSIP_OFFSET
+        assert_eq!(bus.read32(0x2000000), 1);
     }
 
     // 잘못된 주소 테스트

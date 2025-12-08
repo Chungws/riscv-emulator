@@ -2,6 +2,10 @@ pub mod clint;
 pub mod memory;
 pub mod uart;
 
+pub use clint::CLINT_BASE;
+pub use clint::CLINT_SIZE;
+pub use clint::Clint;
+
 pub use memory::DRAM_BASE;
 pub use memory::DRAM_SIZE;
 pub use memory::Memory;

@@ -1,3 +1,6 @@
+pub const CLINT_BASE: u64 = 0x200_0000;
+pub const CLINT_SIZE: u64 = 0x10000;
+
 const MSIP_OFFSET: u64 = 0x0000;
 const MTIMECMP_OFFSET: u64 = 0x4000;
 const MTIME_OFFSET: u64 = 0xBFF8;
