@@ -59,6 +59,10 @@ impl Clint {
     pub fn tick(&mut self) {
         self.mtime += 1;
     }
+
+    pub fn check_timer_interrupt(&self) -> bool {
+        self.mtimecmp != 0 && self.mtime >= self.mtimecmp
+    }
 }
 
 #[cfg(test)]
@@ -134,5 +138,37 @@ mod tests {
             clint.tick();
         }
         assert_eq!(clint.read64(MTIME_OFFSET), 100);
+    }
+
+    #[test]
+    fn test_check_timer_interrupt_not_triggered() {
+        let mut clint = Clint::new();
+        clint.write64(MTIMECMP_OFFSET, 5);
+        clint.write64(MTIME_OFFSET, 3);
+        assert!(!clint.check_timer_interrupt());
+    }
+
+    #[test]
+    fn test_check_timer_interrupt_equal() {
+        let mut clint = Clint::new();
+        clint.write64(MTIMECMP_OFFSET, 5);
+        clint.write64(MTIME_OFFSET, 5);
+        assert!(clint.check_timer_interrupt());
+    }
+
+    #[test]
+    fn test_check_timer_interrupt_exceeded() {
+        let mut clint = Clint::new();
+        clint.write64(MTIMECMP_OFFSET, 5);
+        clint.write64(MTIME_OFFSET, 10);
+        assert!(clint.check_timer_interrupt());
+    }
+
+    #[test]
+    fn test_check_timer_interrupt_zero_mtimecmp() {
+        let mut clint = Clint::new();
+        clint.write64(MTIMECMP_OFFSET, 0);
+        clint.write64(MTIME_OFFSET, 100);
+        assert!(!clint.check_timer_interrupt()); // mtimecmp=0은 미설정
     }
 }

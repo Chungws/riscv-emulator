@@ -105,6 +105,10 @@ impl Bus {
     pub fn tick(&mut self) {
         self.clint.tick();
     }
+
+    pub fn check_timer_interrupt(&self) -> bool {
+        self.clint.check_timer_interrupt()
+    }
 }
 
 #[cfg(test)]
