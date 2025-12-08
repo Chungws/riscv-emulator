@@ -1,37 +1,69 @@
 use std::collections::HashMap;
 
-pub const MSTATUS: u16 = 0x300;
-pub const MTVEC: u16 = 0x305;
-pub const MEPC: u16 = 0x341;
-pub const MCAUSE: u16 = 0x342;
-pub const MTVAL: u16 = 0x343;
-pub const MHARTID: u16 = 0xF14;
-pub const MISA: u16 = 0x301;
+// ========================================
+// CSR Addresses
+// ========================================
 
+// Supervisor Mode CSRs
 pub const SSTATUS: u16 = 0x100;
 pub const STVEC: u16 = 0x105;
 pub const SEPC: u16 = 0x141;
 pub const SCAUSE: u16 = 0x142;
 pub const STVAL: u16 = 0x143;
 
-pub const MSTATUS_MIE: u64 = 0x8;
-pub const MSTATUS_MPIE: u64 = 0x80;
-pub const MSTATUS_MPP: u64 = 0x1800;
-pub const MSTATUS_SIE: u64 = 0x2;
-pub const MSTATUS_SPIE: u64 = 0x20;
-pub const MSTATUS_SPP: u64 = 0x100;
+// Machine Mode CSRs
+pub const MSTATUS: u16 = 0x300;
+pub const MISA: u16 = 0x301;
+pub const MIE: u16 = 0x304;
+pub const MTVEC: u16 = 0x305;
+pub const MEPC: u16 = 0x341;
+pub const MCAUSE: u16 = 0x342;
+pub const MTVAL: u16 = 0x343;
+pub const MIP: u16 = 0x344;
+pub const MHARTID: u16 = 0xF14;
+
+// ========================================
+// Bit Masks
+// ========================================
+
+// MSTATUS bits
+pub const MSTATUS_SIE: u64 = 1 << 1;
+pub const MSTATUS_MIE: u64 = 1 << 3;
+pub const MSTATUS_SPIE: u64 = 1 << 5;
+pub const MSTATUS_MPIE: u64 = 1 << 7;
+pub const MSTATUS_SPP: u64 = 1 << 8;
+pub const MSTATUS_MPP: u64 = 0x3 << 11;
 
 // SSTATUS aliases (same bit positions as MSTATUS)
 pub const SSTATUS_SIE: u64 = MSTATUS_SIE;
 pub const SSTATUS_SPIE: u64 = MSTATUS_SPIE;
 pub const SSTATUS_SPP: u64 = MSTATUS_SPP;
 
+// MIE bits (Interrupt Enable)
+pub const MIE_MSIE: u64 = 1 << 3;
+pub const MIE_MTIE: u64 = 1 << 7;
+pub const MIE_MEIE: u64 = 1 << 11;
+
+// MIP bits (Interrupt Pending)
+pub const MIP_MSIP: u64 = 1 << 3;
+pub const MIP_MTIP: u64 = 1 << 7;
+pub const MIP_MEIP: u64 = 1 << 11;
+
+// ========================================
+// Exception/Interrupt Codes (for mcause)
+// ========================================
+
+// Exception codes
+pub const BREAKPOINT: u64 = 3;
 pub const ECALL_FROM_U: u64 = 8;
 pub const ECALL_FROM_S: u64 = 9;
 pub const ECALL_FROM_M: u64 = 11;
-pub const BREAKPOINT: u64 = 3;
 
+// Interrupt codes (use with INTERRUPT_BIT)
 pub const INTERRUPT_BIT: u64 = 1 << 63;
+pub const INTERRUPT_FROM_SOFTWARE: u64 = 3;
+pub const INTERRUPT_FROM_TIMER: u64 = 7;
+pub const INTERRUPT_FROM_EXTERNAL: u64 = 11;
 
 pub struct Csr {
     data: HashMap<u16, u64>,
