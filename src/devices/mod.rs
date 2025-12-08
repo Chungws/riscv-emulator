@@ -1,3 +1,4 @@
+pub mod clint;
 pub mod memory;
 pub mod uart;
 
