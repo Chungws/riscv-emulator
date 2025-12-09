@@ -113,15 +113,15 @@ AND mie.MTIE = 1 (타이머 인터럽트 활성화)
 
 **목표**: CLINT 메모리 맵 디바이스 구현
 
-- [ ] `src/devices/clint.rs` 파일 생성
-- [ ] CLINT 구조체 정의 (mtime, mtimecmp, msip 필드)
-- [ ] `new()` 함수: 초기값 설정
-- [ ] `read64(offset)`: mtime, mtimecmp 읽기
-- [ ] `write64(offset, value)`: mtimecmp 쓰기
-- [ ] `read32(offset)`: msip 읽기
-- [ ] `write32(offset, value)`: msip 쓰기
+- [x] `src/devices/clint.rs` 파일 생성
+- [x] CLINT 구조체 정의 (mtime, mtimecmp, msip 필드)
+- [x] `new()` 함수: 초기값 설정
+- [x] `read64(offset)`: mtime, mtimecmp 읽기
+- [x] `write64(offset, value)`: mtimecmp 쓰기
+- [x] `read32(offset)`: msip 읽기
+- [x] `write32(offset, value)`: msip 쓰기
 
-**검증**: 레지스터 읽기/쓰기 단위 테스트
+**검증**: 레지스터 읽기/쓰기 단위 테스트 ✅
 
 ---
 
@@ -129,12 +129,12 @@ AND mie.MTIE = 1 (타이머 인터럽트 활성화)
 
 **목표**: 메모리 맵에 CLINT 추가
 
-- [ ] Bus 구조체에 CLINT 필드 추가
-- [ ] 주소 범위 상수 정의 (0x200_0000 ~ 0x200_FFFF)
-- [ ] `read32`, `read64`에서 CLINT 주소 분기
-- [ ] `write32`, `write64`에서 CLINT 주소 분기
+- [x] Bus 구조체에 CLINT 필드 추가
+- [x] 주소 범위 상수 정의 (0x200_0000 ~ 0x200_FFFF)
+- [x] `read32`, `read64`에서 CLINT 주소 분기
+- [x] `write32`, `write64`에서 CLINT 주소 분기
 
-**검증**: Bus를 통한 CLINT 접근 테스트
+**검증**: Bus를 통한 CLINT 접근 테스트 ✅
 
 ---
 
@@ -142,11 +142,11 @@ AND mie.MTIE = 1 (타이머 인터럽트 활성화)
 
 **목표**: mtime 카운터 증가 로직
 
-- [ ] CLINT에 `tick()` 메서드 추가
-- [ ] CPU의 `step()` 에서 `tick()` 호출
-- [ ] mtime 값 1씩 증가
+- [x] CLINT에 `tick()` 메서드 추가
+- [x] CPU의 `step()` 에서 `tick()` 호출
+- [x] mtime 값 1씩 증가
 
-**검증**: 여러 스텝 후 mtime 값 확인
+**검증**: 여러 스텝 후 mtime 값 확인 ✅
 
 ---
 
@@ -154,11 +154,11 @@ AND mie.MTIE = 1 (타이머 인터럽트 활성화)
 
 **목표**: 타이머 인터럽트 조건 확인
 
-- [ ] CLINT에 `check_timer_interrupt()` 메서드 추가
-- [ ] `mtime >= mtimecmp` 비교
-- [ ] 결과 반환 (bool)
+- [x] CLINT에 `check_timer_interrupt()` 메서드 추가
+- [x] `mtime >= mtimecmp` 비교
+- [x] 결과 반환 (bool)
 
-**검증**: mtimecmp 설정 후 조건 확인 테스트
+**검증**: mtimecmp 설정 후 조건 확인 테스트 ✅
 
 ---
 
@@ -166,13 +166,13 @@ AND mie.MTIE = 1 (타이머 인터럽트 활성화)
 
 **목표**: CPU에서 인터럽트 처리
 
-- [ ] CPU에 `check_pending_interrupts()` 메서드 추가
-- [ ] mip.MTIP 업데이트 로직
-- [ ] 인터럽트 활성화 조건 확인 (mstatus.MIE && mie.MTIE)
-- [ ] 조건 만족 시 트랩 호출 (cause = 인터럽트 비트 | 7)
-- [ ] `step()` 시작 시 인터럽트 체크
+- [x] CPU에 `check_pending_interrupts()` 메서드 추가
+- [ ] mip.MTIP 업데이트 로직 (미구현 - 직접 체크 방식 사용)
+- [x] 인터럽트 활성화 조건 확인 (mstatus.MIE && mie.MTIE)
+- [x] 조건 만족 시 트랩 호출 (cause = 인터럽트 비트 | 7)
+- [x] `step()` 시작 시 인터럽트 체크
 
-**검증**: 타이머 인터럽트 발생 및 핸들러 진입 테스트
+**검증**: 타이머 인터럽트 발생 및 핸들러 진입 테스트 ✅
 
 ---
 
@@ -180,10 +180,10 @@ AND mie.MTIE = 1 (타이머 인터럽트 활성화)
 
 **목표**: 인터럽트 클리어 메커니즘
 
-- [ ] mtimecmp에 새 값 쓰면 MTIP 재평가
-- [ ] `mtime < mtimecmp`이면 MTIP 클리어
+- [x] mtimecmp에 새 값 쓰면 인터럽트 조건 재평가
+- [x] `mtime < mtimecmp`이면 인터럽트 클리어
 
-**검증**: 인터럽트 핸들러에서 mtimecmp 업데이트 후 복귀 테스트
+**검증**: 인터럽트 핸들러에서 mtimecmp 업데이트 후 복귀 테스트 ✅
 
 ---
 
@@ -191,9 +191,9 @@ AND mie.MTIE = 1 (타이머 인터럽트 활성화)
 
 **목표**: 전체 흐름 검증
 
-- [ ] 타이머 설정 → 인터럽트 대기 → 핸들러 실행 → 복귀
-- [ ] 주기적 인터럽트 발생 테스트 (여러 번)
-- [ ] 소프트웨어 인터럽트 테스트 (msip)
+- [x] 타이머 설정 → 인터럽트 대기 → 핸들러 실행 → 복귀
+- [x] 주기적 인터럽트 발생 테스트 (여러 번)
+- [ ] 소프트웨어 인터럽트 테스트 (msip) - 미구현
 
 ---
 

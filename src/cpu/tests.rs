@@ -1376,3 +1376,125 @@ fn test_timer_interrupt_saves_state() {
     assert_eq!(mstatus & csr::MSTATUS_MPIE, csr::MSTATUS_MPIE);
     assert_eq!(mstatus & csr::MSTATUS_MIE, 0);
 }
+
+#[test]
+fn test_timer_interrupt_clear_by_mtimecmp_update() {
+    // mtimecmp를 더 큰 값으로 업데이트하면 인터럽트가 클리어됨
+    let mut cpu = Cpu::new();
+
+    cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
+    cpu.csr.write(csr::MIE, csr::MIE_MTIE);
+    cpu.csr.write(csr::MTVEC, 0x80001000);
+
+    // mtimecmp = 3
+    cpu.bus.write64(0x2004000, 3);
+
+    // NOP 명령어들
+    for i in 0..20 {
+        cpu.bus.write32(0x80000000 + i * 4, 0x00000013);
+    }
+
+    // 인터럽트 발생 전까지 실행
+    for _ in 0..3 {
+        cpu.step();
+    }
+    assert!(cpu.bus.check_timer_interrupt()); // mtime >= mtimecmp
+
+    // mtimecmp를 더 큰 값으로 업데이트 (인터럽트 클리어)
+    cpu.bus.write64(0x2004000, 100);
+
+    // 인터럽트 조건 해제됨
+    assert!(!cpu.bus.check_timer_interrupt());
+}
+
+#[test]
+fn test_timer_interrupt_full_cycle() {
+    // 전체 사이클: 인터럽트 발생 → 핸들러 → mret → 정상 실행 재개
+    let mut cpu = Cpu::new();
+
+    cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
+    cpu.csr.write(csr::MIE, csr::MIE_MTIE);
+    cpu.csr.write(csr::MTVEC, 0x80001000);
+
+    // mtimecmp = 2 (빠른 인터럽트)
+    cpu.bus.write64(0x2004000, 2);
+
+    // 메인 코드: NOP들
+    for i in 0..20 {
+        cpu.bus.write32(0x80000000 + i * 4, 0x00000013);
+    }
+
+    // 핸들러 코드 (0x80001000):
+    // 간단히 mret만 실행 (실제로는 mtimecmp 업데이트 필요하지만
+    // 테스트에서는 수동으로 처리)
+    cpu.bus.write32(0x80001000, 0x30200073); // mret
+
+    // Step 1-2: NOP 실행, mtime 증가
+    cpu.step(); // mtime = 1
+    assert_eq!(cpu.pc, 0x80000004);
+
+    cpu.step(); // mtime = 2
+    assert_eq!(cpu.pc, 0x80000008);
+
+    // Step 3: mtime >= mtimecmp, 인터럽트 발생
+    cpu.step(); // mtime = 3, 인터럽트!
+    assert_eq!(cpu.pc, 0x80001000); // 핸들러로 점프
+    assert_eq!(cpu.csr.read(csr::MEPC), 0x80000008); // 원래 PC 저장
+
+    // mtimecmp 업데이트 (핸들러가 하는 일을 수동으로)
+    cpu.bus.write64(0x2004000, 100);
+
+    // Step 4: mret 실행
+    cpu.step();
+    assert_eq!(cpu.pc, 0x80000008); // 원래 위치로 복귀
+
+    // MIE 복원 확인
+    let mstatus = cpu.csr.read(csr::MSTATUS);
+    assert_eq!(mstatus & csr::MSTATUS_MIE, csr::MSTATUS_MIE);
+
+    // Step 5+: 정상 실행 재개
+    cpu.step();
+    assert_eq!(cpu.pc, 0x8000000C); // 다음 명령어로 진행
+}
+
+#[test]
+fn test_timer_interrupt_periodic() {
+    // 주기적 인터럽트: 첫 번째 인터럽트 → 클리어 → 두 번째 인터럽트
+    let mut cpu = Cpu::new();
+
+    cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
+    cpu.csr.write(csr::MIE, csr::MIE_MTIE);
+    cpu.csr.write(csr::MTVEC, 0x80001000);
+
+    let interval: u64 = 5;
+    cpu.bus.write64(0x2004000, interval); // 첫 인터럽트: mtime = 5
+
+    // 메인 코드: NOP들
+    for i in 0..50 {
+        cpu.bus.write32(0x80000000 + i * 4, 0x00000013);
+    }
+
+    // 핸들러: mret
+    cpu.bus.write32(0x80001000, 0x30200073);
+
+    let mut interrupt_count = 0;
+
+    for _ in 0..20 {
+        cpu.step();
+
+        // 핸들러로 점프했으면 인터럽트 발생
+        if cpu.pc == 0x80001000 {
+            interrupt_count += 1;
+
+            // mtimecmp를 다음 interval로 업데이트
+            let current_mtime = cpu.bus.read64(0x200BFF8);
+            cpu.bus.write64(0x2004000, current_mtime + interval);
+
+            // mret 실행
+            cpu.step();
+        }
+    }
+
+    // 여러 번의 인터럽트가 발생해야 함
+    assert!(interrupt_count >= 2, "Expected at least 2 interrupts, got {}", interrupt_count);
+}
