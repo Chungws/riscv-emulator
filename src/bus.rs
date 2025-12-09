@@ -109,6 +109,10 @@ impl Bus {
     pub fn check_timer_interrupt(&self) -> bool {
         self.clint.check_timer_interrupt()
     }
+
+    pub fn check_software_interrupt(&self) -> bool {
+        self.clint.check_software_interrupt()
+    }
 }
 
 #[cfg(test)]

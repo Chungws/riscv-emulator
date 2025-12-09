@@ -1290,12 +1290,14 @@ fn test_timer_interrupt_triggers() {
         cpu.bus.write32(0x80000000 + i * 4, 0x00000013);
     }
 
-    // 5번 step (mtime이 5가 됨)
-    for _ in 0..5 {
+    // tick() → check_pending_interrupts() 순서이므로
+    // step 5에서 mtime = 5가 되고 즉시 인터럽트 발생
+    for _ in 0..4 {
         cpu.step();
     }
+    // 4번 step 후: mtime = 4, PC 진행 중
 
-    // 6번째 step에서 인터럽트 발생 (mtime >= mtimecmp)
+    // 5번째 step에서 인터럽트 발생 (mtime = 5 >= mtimecmp)
     cpu.step();
 
     assert_eq!(cpu.pc, 0x80001000); // mtvec으로 점프
@@ -1365,11 +1367,12 @@ fn test_timer_interrupt_saves_state() {
     cpu.bus.write64(0x2004000, 1);
 
     cpu.bus.write32(0x80000000, 0x00000013); // NOP
-    cpu.step(); // mtime = 1
-    cpu.step(); // 인터럽트 발생
+    // tick() → check_pending_interrupts() 순서이므로
+    // step 1: tick() → mtime = 1 → 즉시 인터럽트 발생
+    cpu.step();
 
-    // mepc에 원래 PC 저장됨
-    assert_eq!(cpu.csr.read(csr::MEPC), 0x80000004);
+    // mepc에 원래 PC 저장됨 (인터럽트 시점의 PC)
+    assert_eq!(cpu.csr.read(csr::MEPC), 0x80000000);
 
     // mstatus 업데이트 (MIE -> MPIE, MIE = 0)
     let mstatus = cpu.csr.read(csr::MSTATUS);
@@ -1429,32 +1432,30 @@ fn test_timer_interrupt_full_cycle() {
     // 테스트에서는 수동으로 처리)
     cpu.bus.write32(0x80001000, 0x30200073); // mret
 
-    // Step 1-2: NOP 실행, mtime 증가
-    cpu.step(); // mtime = 1
+    // tick() → check_pending_interrupts() 순서
+    // Step 1: mtime = 1 < mtimecmp (2), NOP 실행
+    cpu.step();
     assert_eq!(cpu.pc, 0x80000004);
 
-    cpu.step(); // mtime = 2
-    assert_eq!(cpu.pc, 0x80000008);
-
-    // Step 3: mtime >= mtimecmp, 인터럽트 발생
-    cpu.step(); // mtime = 3, 인터럽트!
+    // Step 2: mtime = 2 >= mtimecmp, 인터럽트 발생!
+    cpu.step();
     assert_eq!(cpu.pc, 0x80001000); // 핸들러로 점프
-    assert_eq!(cpu.csr.read(csr::MEPC), 0x80000008); // 원래 PC 저장
+    assert_eq!(cpu.csr.read(csr::MEPC), 0x80000004); // 원래 PC 저장
 
     // mtimecmp 업데이트 (핸들러가 하는 일을 수동으로)
     cpu.bus.write64(0x2004000, 100);
 
-    // Step 4: mret 실행
+    // Step 3: mret 실행
     cpu.step();
-    assert_eq!(cpu.pc, 0x80000008); // 원래 위치로 복귀
+    assert_eq!(cpu.pc, 0x80000004); // 원래 위치로 복귀
 
     // MIE 복원 확인
     let mstatus = cpu.csr.read(csr::MSTATUS);
     assert_eq!(mstatus & csr::MSTATUS_MIE, csr::MSTATUS_MIE);
 
-    // Step 5+: 정상 실행 재개
+    // Step 4+: 정상 실행 재개
     cpu.step();
-    assert_eq!(cpu.pc, 0x8000000C); // 다음 명령어로 진행
+    assert_eq!(cpu.pc, 0x80000008); // 다음 명령어로 진행
 }
 
 #[test]
@@ -1497,4 +1498,174 @@ fn test_timer_interrupt_periodic() {
 
     // 여러 번의 인터럽트가 발생해야 함
     assert!(interrupt_count >= 2, "Expected at least 2 interrupts, got {}", interrupt_count);
+}
+
+// === MIP 레지스터 반영 테스트 ===
+
+#[test]
+fn test_mip_mtip_reflects_timer_condition() {
+    let mut cpu = Cpu::new();
+
+    // mtimecmp = 3
+    cpu.bus.write64(0x2004000, 3);
+
+    // 인터럽트 비활성화 상태에서 MIP만 확인
+    cpu.csr.write(csr::MSTATUS, 0); // MIE = 0
+
+    // NOP들
+    for i in 0..10 {
+        cpu.bus.write32(0x80000000 + i * 4, 0x00000013);
+    }
+
+    // tick() → check_pending_interrupts() 순서이므로
+    // step N 완료 후: mtime = N, MIP도 mtime = N 기준으로 평가됨
+    cpu.step(); // mtime = 1
+    cpu.step(); // mtime = 2
+    let mip = cpu.csr.read(csr::MIP);
+    assert_eq!(mip & csr::MIP_MTIP, 0, "MTIP should be 0 when mtime < mtimecmp");
+
+    // step 3: mtime = 3 (>= mtimecmp), MTIP = 1
+    cpu.step();
+    let mip = cpu.csr.read(csr::MIP);
+    assert_ne!(mip & csr::MIP_MTIP, 0, "MTIP should be 1 when mtime >= mtimecmp");
+
+    // mtimecmp 업데이트 후: MTIP = 0
+    cpu.bus.write64(0x2004000, 100);
+    cpu.step();
+    let mip = cpu.csr.read(csr::MIP);
+    assert_eq!(mip & csr::MIP_MTIP, 0, "MTIP should be 0 after mtimecmp update");
+}
+
+#[test]
+fn test_mip_msip_reflects_clint_msip() {
+    let mut cpu = Cpu::new();
+
+    // 인터럽트 비활성화 상태에서 MIP만 확인
+    cpu.csr.write(csr::MSTATUS, 0); // MIE = 0
+
+    // NOP들
+    for i in 0..10 {
+        cpu.bus.write32(0x80000000 + i * 4, 0x00000013);
+    }
+
+    // CLINT msip = 0: MIP.MSIP = 0
+    cpu.step();
+    let mip = cpu.csr.read(csr::MIP);
+    assert_eq!(mip & csr::MIP_MSIP, 0, "MSIP should be 0 when CLINT msip = 0");
+
+    // CLINT msip = 1: MIP.MSIP = 1
+    cpu.bus.write32(0x2000000, 1);
+    cpu.step();
+    let mip = cpu.csr.read(csr::MIP);
+    assert_ne!(mip & csr::MIP_MSIP, 0, "MSIP should be 1 when CLINT msip = 1");
+
+    // CLINT msip = 0: MIP.MSIP = 0
+    cpu.bus.write32(0x2000000, 0);
+    cpu.step();
+    let mip = cpu.csr.read(csr::MIP);
+    assert_eq!(mip & csr::MIP_MSIP, 0, "MSIP should be 0 after CLINT msip cleared");
+}
+
+// === 소프트웨어 인터럽트 테스트 ===
+
+#[test]
+fn test_software_interrupt_triggers() {
+    let mut cpu = Cpu::new();
+
+    cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
+    cpu.csr.write(csr::MIE, csr::MIE_MSIE);
+    cpu.csr.write(csr::MTVEC, 0x80001000);
+
+    // CLINT msip 설정 (소프트웨어 인터럽트 트리거)
+    cpu.bus.write32(0x2000000, 1);
+
+    // NOP
+    cpu.bus.write32(0x80000000, 0x00000013);
+
+    cpu.step();
+
+    assert_eq!(cpu.pc, 0x80001000); // 핸들러로 점프
+    assert_eq!(
+        cpu.csr.read(csr::MCAUSE),
+        csr::INTERRUPT_BIT | csr::INTERRUPT_FROM_SOFTWARE
+    );
+}
+
+#[test]
+fn test_software_interrupt_disabled_msie() {
+    let mut cpu = Cpu::new();
+
+    cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
+    cpu.csr.write(csr::MIE, 0); // MSIE = 0
+    cpu.csr.write(csr::MTVEC, 0x80001000);
+
+    // CLINT msip 설정
+    cpu.bus.write32(0x2000000, 1);
+
+    for i in 0..5 {
+        cpu.bus.write32(0x80000000 + i * 4, 0x00000013);
+    }
+
+    for _ in 0..5 {
+        cpu.step();
+    }
+
+    // 인터럽트 발생 안 함
+    assert_eq!(cpu.pc, 0x80000000 + 5 * 4);
+}
+
+#[test]
+fn test_software_interrupt_priority_over_timer() {
+    // 소프트웨어 인터럽트가 타이머보다 우선순위 높음
+    let mut cpu = Cpu::new();
+
+    cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
+    cpu.csr.write(csr::MIE, csr::MIE_MSIE | csr::MIE_MTIE); // 둘 다 활성화
+    cpu.csr.write(csr::MTVEC, 0x80001000);
+
+    // 타이머 인터럽트 조건 만족
+    cpu.bus.write64(0x2004000, 1); // mtimecmp = 1
+    cpu.bus.write64(0x200BFF8, 10); // mtime = 10 (>= mtimecmp)
+
+    // 소프트웨어 인터럽트도 펜딩 (CLINT msip)
+    cpu.bus.write32(0x2000000, 1);
+
+    cpu.bus.write32(0x80000000, 0x00000013); // NOP
+
+    cpu.step();
+
+    // 소프트웨어 인터럽트가 먼저 처리됨
+    assert_eq!(
+        cpu.csr.read(csr::MCAUSE),
+        csr::INTERRUPT_BIT | csr::INTERRUPT_FROM_SOFTWARE,
+        "Software interrupt should have higher priority than timer"
+    );
+}
+
+#[test]
+fn test_software_interrupt_clear() {
+    let mut cpu = Cpu::new();
+
+    cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
+    cpu.csr.write(csr::MIE, csr::MIE_MSIE);
+    cpu.csr.write(csr::MTVEC, 0x80001000);
+
+    // 소프트웨어 인터럽트 발생 (CLINT msip)
+    cpu.bus.write32(0x2000000, 1);
+    cpu.bus.write32(0x80000000, 0x00000013);
+    cpu.bus.write32(0x80001000, 0x30200073); // mret
+
+    cpu.step(); // 인터럽트 발생
+    assert_eq!(cpu.pc, 0x80001000);
+
+    // CLINT msip 클리어
+    cpu.bus.write32(0x2000000, 0);
+
+    cpu.step(); // mret
+    assert_eq!(cpu.pc, 0x80000000); // 복귀
+
+    // 더 이상 인터럽트 발생 안 함
+    cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE); // mret이 MIE 복원함
+    cpu.step();
+    assert_eq!(cpu.pc, 0x80000004); // 정상 진행
 }

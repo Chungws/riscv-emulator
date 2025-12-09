@@ -63,6 +63,10 @@ impl Clint {
     pub fn check_timer_interrupt(&self) -> bool {
         self.mtimecmp != 0 && self.mtime >= self.mtimecmp
     }
+
+    pub fn check_software_interrupt(&self) -> bool {
+        self.msip
+    }
 }
 
 #[cfg(test)]

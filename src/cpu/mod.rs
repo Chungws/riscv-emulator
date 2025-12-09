@@ -1,10 +1,6 @@
 use core::panic;
 
-use crate::{
-    Bus, Csr,
-    csr::{self, INTERRUPT_BIT, INTERRUPT_FROM_TIMER},
-    debug_log, decoder, devices,
-};
+use crate::{Bus, Csr, csr, debug_log, decoder, devices};
 
 const OP_IMM: u32 = 0x13;
 const OP_IMM_32: u32 = 0x1B;
@@ -122,15 +118,14 @@ impl Cpu {
     }
 
     pub fn step(&mut self) {
+        self.bus.tick();
         if self.check_pending_interrupts() {
-            self.bus.tick();
             return;
         }
 
         let inst = self.fetch();
         let op = decoder::opcode(inst);
 
-        self.bus.tick();
         match op {
             OP_IMM => self.execute_op_imm(inst),
             OP_IMM_32 => self.execute_op_imm_32(inst),
@@ -790,20 +785,38 @@ impl Cpu {
     }
 
     fn check_pending_interrupts(&mut self) -> bool {
-        let mut result = true;
-        result &= self.bus.check_timer_interrupt();
-
-        let mstatus = self.csr.read(csr::MSTATUS);
-        result &= mstatus & csr::MSTATUS_MIE != 0;
-
-        let mie = self.csr.read(csr::MIE);
-        result &= mie & csr::MIE_MTIE != 0;
-
-        if result {
-            self.trap(INTERRUPT_BIT | INTERRUPT_FROM_TIMER, 0);
+        let mip = self.csr.read(csr::MIP);
+        if self.bus.check_timer_interrupt() {
+            self.csr.write(csr::MIP, mip | csr::MIP_MTIP);
+        } else {
+            self.csr.write(csr::MIP, mip & !csr::MIP_MTIP);
         }
 
-        result
+        let mip = self.csr.read(csr::MIP);
+        if self.bus.check_software_interrupt() {
+            self.csr.write(csr::MIP, mip | csr::MIP_MSIP);
+        } else {
+            self.csr.write(csr::MIP, mip & !csr::MIP_MSIP);
+        }
+
+        let mstatus = self.csr.read(csr::MSTATUS);
+        if mstatus & csr::MSTATUS_MIE == 0 {
+            return false;
+        }
+
+        let mip = self.csr.read(csr::MIP);
+        let mie = self.csr.read(csr::MIE);
+
+        if (mip & csr::MIP_MSIP != 0) && (mie & csr::MIE_MSIE != 0) {
+            self.trap(csr::INTERRUPT_BIT | csr::INTERRUPT_FROM_SOFTWARE, 0);
+            return true;
+        }
+
+        if (mip & csr::MIP_MTIP != 0) && (mie & csr::MIE_MTIE != 0) {
+            self.trap(csr::INTERRUPT_BIT | csr::INTERRUPT_FROM_TIMER, 0);
+            return true;
+        }
+        false
     }
 }
 
