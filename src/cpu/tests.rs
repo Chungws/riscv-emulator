@@ -1270,3 +1270,109 @@ fn test_mtime_increments_multiple_steps() {
 
     assert_eq!(cpu.bus.read64(0x200BFF8), 10);
 }
+
+// === 타이머 인터럽트 테스트 ===
+
+#[test]
+fn test_timer_interrupt_triggers() {
+    let mut cpu = Cpu::new();
+
+    // 인터럽트 활성화
+    cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
+    cpu.csr.write(csr::MIE, csr::MIE_MTIE);
+    cpu.csr.write(csr::MTVEC, 0x80001000);
+
+    // mtimecmp = 5 설정
+    cpu.bus.write64(0x2004000, 5);
+
+    // NOP 명령어 여러 개
+    for i in 0..10 {
+        cpu.bus.write32(0x80000000 + i * 4, 0x00000013);
+    }
+
+    // 5번 step (mtime이 5가 됨)
+    for _ in 0..5 {
+        cpu.step();
+    }
+
+    // 6번째 step에서 인터럽트 발생 (mtime >= mtimecmp)
+    cpu.step();
+
+    assert_eq!(cpu.pc, 0x80001000); // mtvec으로 점프
+    assert_eq!(cpu.csr.read(csr::MCAUSE), csr::INTERRUPT_BIT | csr::INTERRUPT_FROM_TIMER);
+}
+
+#[test]
+fn test_timer_interrupt_disabled_mie() {
+    let mut cpu = Cpu::new();
+
+    // 전역 인터럽트 비활성화 (MSTATUS_MIE = 0)
+    cpu.csr.write(csr::MSTATUS, 0);
+    cpu.csr.write(csr::MIE, csr::MIE_MTIE);
+    cpu.csr.write(csr::MTVEC, 0x80001000);
+
+    // mtimecmp = 3
+    cpu.bus.write64(0x2004000, 3);
+
+    // NOP
+    for i in 0..10 {
+        cpu.bus.write32(0x80000000 + i * 4, 0x00000013);
+    }
+
+    // 10번 step해도 인터럽트 발생 안 함
+    for _ in 0..10 {
+        cpu.step();
+    }
+
+    // PC는 계속 진행
+    assert_eq!(cpu.pc, 0x80000000 + 10 * 4);
+}
+
+#[test]
+fn test_timer_interrupt_disabled_mtie() {
+    let mut cpu = Cpu::new();
+
+    // 전역 인터럽트 활성화, 타이머 인터럽트 비활성화
+    cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
+    cpu.csr.write(csr::MIE, 0); // MTIE = 0
+    cpu.csr.write(csr::MTVEC, 0x80001000);
+
+    // mtimecmp = 3
+    cpu.bus.write64(0x2004000, 3);
+
+    // NOP
+    for i in 0..10 {
+        cpu.bus.write32(0x80000000 + i * 4, 0x00000013);
+    }
+
+    // 10번 step해도 인터럽트 발생 안 함
+    for _ in 0..10 {
+        cpu.step();
+    }
+
+    assert_eq!(cpu.pc, 0x80000000 + 10 * 4);
+}
+
+#[test]
+fn test_timer_interrupt_saves_state() {
+    let mut cpu = Cpu::new();
+
+    cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
+    cpu.csr.write(csr::MIE, csr::MIE_MTIE);
+    cpu.csr.write(csr::MTVEC, 0x80001000);
+
+    // mtimecmp = 1 (즉시 인터럽트)
+    cpu.bus.write64(0x2004000, 1);
+
+    cpu.bus.write32(0x80000000, 0x00000013); // NOP
+    cpu.step(); // mtime = 1
+    cpu.step(); // 인터럽트 발생
+
+    // mepc에 원래 PC 저장됨
+    assert_eq!(cpu.csr.read(csr::MEPC), 0x80000004);
+
+    // mstatus 업데이트 (MIE -> MPIE, MIE = 0)
+    let mstatus = cpu.csr.read(csr::MSTATUS);
+    assert_eq!(mstatus & csr::MSTATUS_MPIE, csr::MSTATUS_MPIE);
+    assert_eq!(mstatus & csr::MSTATUS_MIE, 0);
+}

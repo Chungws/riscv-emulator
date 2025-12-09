@@ -1,6 +1,10 @@
 use core::panic;
 
-use crate::{Bus, Csr, csr, debug_log, decoder, devices};
+use crate::{
+    Bus, Csr,
+    csr::{self, INTERRUPT_BIT, INTERRUPT_FROM_TIMER},
+    debug_log, decoder, devices,
+};
 
 const OP_IMM: u32 = 0x13;
 const OP_IMM_32: u32 = 0x1B;
@@ -118,6 +122,11 @@ impl Cpu {
     }
 
     pub fn step(&mut self) {
+        if self.check_pending_interrupts() {
+            self.bus.tick();
+            return;
+        }
+
         let inst = self.fetch();
         let op = decoder::opcode(inst);
 
@@ -778,6 +787,23 @@ impl Cpu {
             _ => panic!("Unknown SYSTEM csr_addr: {:#x}", csr_addr),
         };
         taken
+    }
+
+    fn check_pending_interrupts(&mut self) -> bool {
+        let mut result = true;
+        result &= self.bus.check_timer_interrupt();
+
+        let mstatus = self.csr.read(csr::MSTATUS);
+        result &= mstatus & csr::MSTATUS_MIE != 0;
+
+        let mie = self.csr.read(csr::MIE);
+        result &= mie & csr::MIE_MTIE != 0;
+
+        if result {
+            self.trap(INTERRUPT_BIT | INTERRUPT_FROM_TIMER, 0);
+        }
+
+        result
     }
 }
 
