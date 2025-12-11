@@ -1,4 +1,5 @@
 use crate::devices::{self, CLINT_BASE};
+use crate::devices::stdioterminal::StdioTerminal;
 
 pub struct Bus {
     clint: devices::Clint,
@@ -11,7 +12,7 @@ impl Bus {
         Self {
             clint: devices::Clint::new(),
             memory: devices::Memory::new(),
-            uart: devices::Uart::new(),
+            uart: devices::Uart::new(Box::new(StdioTerminal)),
         }
     }
 
