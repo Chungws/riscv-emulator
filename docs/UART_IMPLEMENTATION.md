@@ -199,19 +199,19 @@ UART_IRQ  = 10 (PLIC용)
 
 **목표**: UART 상태를 저장할 구조체 정의
 
-- [ ] 레지스터 오프셋 상수 (RBR, THR, IER, IIR, FCR, LCR, LSR, SCR)
-- [ ] LSR 비트 상수 (DR, THRE, TEMT)
-- [ ] IER 비트 상수 (RX_ENABLE, TX_ENABLE)
-- [ ] IIR 비트 상수 (NO_INTERRUPT, RX_DATA, THR_EMPTY, FIFO_ENABLED)
-- [ ] Uart 구조체 필드:
+- [x] 레지스터 오프셋 상수 (RBR, THR, IER, IIR, FCR, LCR, LSR, SCR)
+- [x] LSR 비트 상수 (DR, THRE, TEMT)
+- [x] IER 비트 상수 (RX_ENABLE, TX_ENABLE)
+- [x] IIR 비트 상수 (NO_INTERRUPT, RX_DATA, THR_EMPTY, FIFO_ENABLED)
+- [x] Uart 구조체 필드:
   - `tx_fifo: VecDeque<u8>` (16바이트)
   - `rx_fifo: VecDeque<u8>` (16바이트)
   - `tsr: Option<u8>` (Transmit Shift Register)
   - `ier, iir, fcr, lcr, lsr, scr` (레지스터들)
   - `terminal: Box<dyn Terminal>` (백엔드)
-- [ ] `new(terminal)`: 초기 상태 설정
+- [x] `new(terminal)`: 초기 상태 설정
 
-**검증**: 구조체 생성 테스트
+**검증**: 구조체 생성 테스트 완료
 
 ---
 
