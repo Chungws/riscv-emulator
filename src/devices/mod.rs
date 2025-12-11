@@ -1,5 +1,7 @@
 pub mod clint;
 pub mod memory;
+pub mod stdioterminal;
+pub mod terminal;
 pub mod uart;
 
 pub use clint::CLINT_BASE;
