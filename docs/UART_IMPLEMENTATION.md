@@ -184,14 +184,14 @@ UART_IRQ  = 10 (PLIC용)
 
 **목표**: I/O 백엔드 추상화
 
-- [ ] Terminal trait 정의
+- [x] Terminal trait 정의
   - `fn write(&mut self, data: u8)` - 1바이트 출력
   - `fn read(&mut self) -> Option<u8>` - 1바이트 입력 (non-blocking)
-- [ ] StdioTerminal 구현체
+- [x] StdioTerminal 구현체
   - write: stdout으로 출력
   - read: 입력 버퍼에서 읽기 (나중에 스레드와 연결)
 
-**검증**: StdioTerminal로 문자 출력 테스트
+**검증**: ~~StdioTerminal로 문자 출력 테스트~~ MockTerminal로 테스트 완료
 
 ---
 
