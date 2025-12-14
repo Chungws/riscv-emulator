@@ -236,12 +236,12 @@ UART_IRQ  = 10 (PLIC용)
 
 **목표**: FIFO/TSR 상태에 따라 LSR 동적 업데이트
 
-- [ ] `update_lsr()` 메서드 추가
-- [ ] DR: RX FIFO가 비어있지 않으면 1
-- [ ] THRE: TX FIFO가 비어있으면 1
-- [ ] TEMT: TX FIFO와 TSR 모두 비어있으면 1
+- [x] `update_lsr()` 메서드 추가
+- [x] DR: RX FIFO가 비어있지 않으면 1
+- [x] THRE: TX FIFO가 비어있으면 1
+- [x] TEMT: TX FIFO와 TSR 모두 비어있으면 1
 
-**검증**: 각 상태 전이 테스트
+**검증**: 각 상태 전이 테스트 완료
 
 ---
 
