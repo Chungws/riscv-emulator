@@ -249,15 +249,15 @@ UART_IRQ  = 10 (PLIC용)
 
 **목표**: 오프셋별 읽기 구현
 
-- [ ] `read8(offset)` 메서드 구현
-- [ ] RBR (오프셋 0): rx_fifo.pop_front(), update_lsr()
-- [ ] IER (오프셋 1): ier 반환
-- [ ] IIR (오프셋 2): iir 반환
-- [ ] LCR (오프셋 3): lcr 반환
-- [ ] LSR (오프셋 5): update_lsr() 후 lsr 반환
-- [ ] SCR (오프셋 7): scr 반환
+- [x] `read8(offset)` 메서드 구현
+- [x] RBR (오프셋 0): rx_fifo.pop_front(), update_lsr()
+- [x] IER (오프셋 1): ier 반환
+- [x] IIR (오프셋 2): iir 반환
+- [x] LCR (오프셋 3): lcr 반환
+- [x] LSR (오프셋 5): update_lsr() 후 lsr 반환
+- [x] SCR (오프셋 7): scr 반환
 
-**검증**: 각 레지스터 읽기 테스트
+**검증**: 각 레지스터 읽기 테스트 완료
 
 ---
 
