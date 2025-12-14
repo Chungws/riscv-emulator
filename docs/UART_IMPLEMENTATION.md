@@ -296,14 +296,14 @@ UART_IRQ  = 10 (PLIC용)
 
 **목표**: Terminal 입력을 RX FIFO에 추가
 
-- [ ] `receive_input()` 메서드 추가
+- [x] `receive_input()` 메서드 추가
   - Terminal.read() 호출
   - 데이터 있으면 rx_fifo에 push
-- [ ] `push_input(c)` 메서드 (직접 주입용)
-  - rx_fifo.push_back(c)
-  - update_lsr(), update_iir() 호출
+- [x] `push_input(c)` 메서드 (직접 주입용)
+  - rx_fifo_push() 호출 (내부에서 update_lsr(), update_iir() 호출)
+- [x] pub 정리: check_interrupt() pub, transmit() private
 
-**검증**: push_input 후 LSR.DR = 1 확인
+**검증**: push_input, receive_input 테스트 완료
 
 ---
 
