@@ -45,7 +45,7 @@ impl Uart {
             tx_fifo: VecDeque::new(),
             tsr: None,
             ier: 0,
-            iir: 0,
+            iir: IIR_FIFO_ENABLED | IIR_NO_INTERRUPT,
             lcr: 0,
             lsr: LSR_TEMT | LSR_THRE,
             scr: 0,

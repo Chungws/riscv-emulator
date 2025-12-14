@@ -117,6 +117,10 @@ impl Bus {
     pub fn check_software_interrupt(&self) -> bool {
         self.clint.check_software_interrupt()
     }
+
+    pub fn check_uart_interrupt(&self) -> bool {
+        self.uart.check_interrupt()
+    }
 }
 
 #[cfg(test)]
@@ -161,6 +165,22 @@ mod tests {
     fn test_bus_uart_write8() {
         let mut bus = Bus::new();
         bus.write8(0x10000000, b'X'); // 출력됨
+    }
+
+    #[test]
+    fn test_bus_check_uart_interrupt() {
+        let mut bus = Bus::new();
+
+        // 초기: 인터럽트 없음
+        assert!(!bus.check_uart_interrupt());
+
+        // IER에 RX 인터럽트 활성화 (UART_BASE + 1)
+        bus.write8(0x10000001, 0x01);
+
+        // push_input으로 데이터 주입 → 인터럽트 발생
+        bus.uart.push_input(b'A');
+
+        assert!(bus.check_uart_interrupt());
     }
 
     // CLINT 테스트
