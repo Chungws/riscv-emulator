@@ -1669,3 +1669,106 @@ fn test_software_interrupt_clear() {
     cpu.step();
     assert_eq!(cpu.pc, 0x80000004); // 정상 진행
 }
+
+// === UART 외부 인터럽트 테스트 ===
+
+#[test]
+fn test_uart_external_interrupt_triggers() {
+    let mut cpu = Cpu::new();
+
+    // 인터럽트 활성화
+    cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
+    cpu.csr.write(csr::MIE, csr::MIE_MEIE);
+    cpu.csr.write(csr::MTVEC, 0x80001000);
+
+    // UART IER에 RX 인터럽트 활성화
+    cpu.bus.write8(0x10000001, 0x01);
+
+    // UART에 입력 데이터 주입
+    cpu.bus.push_uart_input(b'A');
+
+    cpu.step();
+
+    // 외부 인터럽트 트랩 발생
+    assert_eq!(cpu.pc, 0x80001000);
+    assert_eq!(
+        cpu.csr.read(csr::MCAUSE),
+        csr::INTERRUPT_BIT | csr::INTERRUPT_FROM_EXTERNAL
+    );
+}
+
+#[test]
+fn test_uart_interrupt_disabled_meie() {
+    let mut cpu = Cpu::new();
+
+    // NOP 명령어
+    for i in 0..10 {
+        cpu.bus.write32(0x80000000 + i * 4, 0x00000013);
+    }
+
+    // 글로벌 인터럽트 활성화, 외부 인터럽트는 비활성화
+    cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
+    cpu.csr.write(csr::MIE, 0); // MEIE = 0
+
+    // UART IER에 RX 인터럽트 활성화 + 데이터 주입
+    cpu.bus.write8(0x10000001, 0x01);
+    cpu.bus.push_uart_input(b'A');
+
+    let pc_before = cpu.pc;
+    cpu.step();
+
+    // 인터럽트 발생 안 함 (정상 진행)
+    assert_eq!(cpu.pc, pc_before + 4);
+}
+
+#[test]
+fn test_mip_meip_reflects_uart_interrupt() {
+    let mut cpu = Cpu::new();
+
+    // NOP 명령어
+    for i in 0..10 {
+        cpu.bus.write32(0x80000000 + i * 4, 0x00000013);
+    }
+
+    // 초기: MEIP = 0
+    cpu.step();
+    let mip = cpu.csr.read(csr::MIP);
+    assert_eq!(mip & csr::MIP_MEIP, 0, "MEIP should be 0 initially");
+
+    // UART IER 활성화 + 데이터 주입
+    cpu.bus.write8(0x10000001, 0x01);
+    cpu.bus.push_uart_input(b'X');
+
+    cpu.step();
+    let mip = cpu.csr.read(csr::MIP);
+    assert_ne!(mip & csr::MIP_MEIP, 0, "MEIP should be 1 when UART interrupt pending");
+
+    // UART RBR 읽어서 인터럽트 클리어
+    cpu.bus.read8(0x10000000);
+
+    cpu.step();
+    let mip = cpu.csr.read(csr::MIP);
+    assert_eq!(mip & csr::MIP_MEIP, 0, "MEIP should be 0 after reading RBR");
+}
+
+#[test]
+fn test_uart_interrupt_priority() {
+    let mut cpu = Cpu::new();
+
+    // 모든 인터럽트 활성화
+    cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
+    cpu.csr.write(csr::MIE, csr::MIE_MSIE | csr::MIE_MTIE | csr::MIE_MEIE);
+    cpu.csr.write(csr::MTVEC, 0x80001000);
+
+    // UART 인터럽트만 발생
+    cpu.bus.write8(0x10000001, 0x01);
+    cpu.bus.push_uart_input(b'A');
+
+    cpu.step();
+
+    // 외부 인터럽트 발생 (Software, Timer 없으므로)
+    assert_eq!(
+        cpu.csr.read(csr::MCAUSE),
+        csr::INTERRUPT_BIT | csr::INTERRUPT_FROM_EXTERNAL
+    );
+}

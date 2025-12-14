@@ -232,7 +232,7 @@ mod tests {
     fn test_uart_initial_registers() {
         let uart = create_uart();
         assert_eq!(uart.ier, 0);
-        assert_eq!(uart.iir, 0);
+        assert_eq!(uart.iir, IIR_FIFO_ENABLED | IIR_NO_INTERRUPT);
         assert_eq!(uart.lcr, 0);
         assert_eq!(uart.scr, 0);
     }

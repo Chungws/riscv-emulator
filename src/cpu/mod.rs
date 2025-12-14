@@ -799,6 +799,13 @@ impl Cpu {
             self.csr.write(csr::MIP, mip & !csr::MIP_MSIP);
         }
 
+        let mip = self.csr.read(csr::MIP);
+        if self.bus.check_uart_interrupt() {
+            self.csr.write(csr::MIP, mip | csr::MIP_MEIP);
+        } else {
+            self.csr.write(csr::MIP, mip & !csr::MIP_MEIP);
+        }
+
         let mstatus = self.csr.read(csr::MSTATUS);
         if mstatus & csr::MSTATUS_MIE == 0 {
             return false;
@@ -814,6 +821,11 @@ impl Cpu {
 
         if (mip & csr::MIP_MTIP != 0) && (mie & csr::MIE_MTIE != 0) {
             self.trap(csr::INTERRUPT_BIT | csr::INTERRUPT_FROM_TIMER, 0);
+            return true;
+        }
+
+        if (mip & csr::MIP_MEIP != 0) && (mie & csr::MIE_MEIE != 0) {
+            self.trap(csr::INTERRUPT_BIT | csr::INTERRUPT_FROM_EXTERNAL, 0);
             return true;
         }
         false

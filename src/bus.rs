@@ -121,6 +121,10 @@ impl Bus {
     pub fn check_uart_interrupt(&self) -> bool {
         self.uart.check_interrupt()
     }
+
+    pub fn push_uart_input(&mut self, data: u8) {
+        self.uart.push_input(data);
+    }
 }
 
 #[cfg(test)]
