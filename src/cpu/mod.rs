@@ -64,7 +64,7 @@ impl Cpu {
         }
     }
 
-    pub fn fetch(&self) -> u32 {
+    pub fn fetch(&mut self) -> u32 {
         self.bus.read32(self.pc)
     }
 

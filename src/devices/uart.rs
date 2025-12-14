@@ -8,37 +8,37 @@ use crate::devices::terminal::Terminal;
 pub const UART_BASE: u64 = 0x10000000;
 pub const UART_SIZE: u64 = 8;
 
-const UART_RBR: u32 = 0;
-const UART_THR: u32 = 1;
-const UART_IER: u32 = 2;
-const UART_IIR: u32 = 3;
-const UART_FCR: u32 = 4;
-const UART_LCR: u32 = 5;
-const UART_LSR: u32 = 6;
-const UART_SCR: u32 = 7;
+const UART_RBR: u8 = 0;
+const UART_THR: u8 = 0;
+const UART_IER: u8 = 1;
+const UART_IIR: u8 = 2;
+const UART_FCR: u8 = 2;
+const UART_LCR: u8 = 3;
+const UART_LSR: u8 = 5;
+const UART_SCR: u8 = 7;
 
-const LSR_DR: u32 = 0x1;
-const LSR_THRE: u32 = 0x1 << 5;
-const LSR_TEMT: u32 = 0x1 << 6;
+const LSR_DR: u8 = 0x1;
+const LSR_THRE: u8 = 0x1 << 5;
+const LSR_TEMT: u8 = 0x1 << 6;
 
-const IER_RX_ENABLE: u32 = 0x1;
-const IER_TX_ENABLE: u32 = 0x1 << 1;
+const IER_RX_ENABLE: u8 = 0x1;
+const IER_TX_ENABLE: u8 = 0x1 << 1;
 
-const IIR_NO_INTERRUPT: u32 = 0x1;
-const IIR_RX_DATA: u32 = 0x1;
-const IIR_THR_EMPTY: u32 = 0x1;
-const IIR_FIFO_ENABLED: u32 = 0x1;
+const IIR_NO_INTERRUPT: u8 = 0x1;
+const IIR_RX_DATA: u8 = 0x1;
+const IIR_THR_EMPTY: u8 = 0x1;
+const IIR_FIFO_ENABLED: u8 = 0x1;
 
 pub struct Uart {
     rx_fifo: VecDeque<u8>,
     tx_fifo: VecDeque<u8>,
     tsr: Option<u8>,
-    ier: u32,
-    iir: u32,
-    fcr: u32,
-    lcr: u32,
-    lsr: u32,
-    scr: u32,
+    ier: u8,
+    iir: u8,
+    fcr: u8,
+    lcr: u8,
+    lsr: u8,
+    scr: u8,
     terminal: Box<dyn Terminal>,
 }
 
@@ -58,8 +58,25 @@ impl Uart {
         }
     }
 
-    pub fn read8(&self) -> u8 {
-        0
+    pub fn read8(&mut self, offset: u8) -> u8 {
+        match offset {
+            UART_RBR => {
+                if let Some(data) = self.rx_fifo_pop() {
+                    self.update_lsr();
+                    return data;
+                }
+                0
+            }
+            UART_IER => self.ier as u8,
+            UART_IIR => self.iir as u8,
+            UART_LCR => self.lcr as u8,
+            UART_LSR => {
+                self.update_lsr();
+                self.lsr as u8
+            }
+            UART_SCR => self.scr as u8,
+            _ => panic!("Not Supported Offset"),
+        }
     }
 
     pub fn write8(&mut self, value: u8) {
@@ -341,5 +358,69 @@ mod tests {
         // TX FIFO 비우기
         uart.tx_fifo_pop();
         assert_eq!(uart.lsr & LSR_TEMT, LSR_TEMT); // TEMT = 1
+    }
+
+    // Step 5: 레지스터 읽기 테스트
+    #[test]
+    fn test_read8_rbr() {
+        let mut uart = create_uart();
+
+        // RX FIFO에 데이터 추가
+        uart.rx_fifo_push(b'H');
+        uart.rx_fifo_push(b'i');
+
+        // RBR 읽기
+        assert_eq!(uart.read8(UART_RBR), b'H');
+        assert_eq!(uart.read8(UART_RBR), b'i');
+        assert_eq!(uart.read8(UART_RBR), 0); // 빈 FIFO
+    }
+
+    #[test]
+    fn test_read8_rbr_updates_lsr() {
+        let mut uart = create_uart();
+
+        uart.rx_fifo_push(b'A');
+        assert_eq!(uart.lsr & LSR_DR, LSR_DR); // DR = 1
+
+        uart.read8(UART_RBR); // RBR 읽기
+        assert_eq!(uart.lsr & LSR_DR, 0); // DR = 0 (FIFO 비어짐)
+    }
+
+    #[test]
+    fn test_read8_ier() {
+        let mut uart = create_uart();
+        uart.ier = 0x0F;
+        assert_eq!(uart.read8(UART_IER), 0x0F);
+    }
+
+    #[test]
+    fn test_read8_iir() {
+        let mut uart = create_uart();
+        uart.iir = 0x01;
+        assert_eq!(uart.read8(UART_IIR), 0x01);
+    }
+
+    #[test]
+    fn test_read8_lcr() {
+        let mut uart = create_uart();
+        uart.lcr = 0x03;
+        assert_eq!(uart.read8(UART_LCR), 0x03);
+    }
+
+    #[test]
+    fn test_read8_lsr() {
+        let mut uart = create_uart();
+
+        // 초기 LSR: THRE | TEMT
+        let lsr = uart.read8(UART_LSR);
+        assert_eq!(lsr & (LSR_THRE as u8), LSR_THRE as u8);
+        assert_eq!(lsr & (LSR_TEMT as u8), LSR_TEMT as u8);
+    }
+
+    #[test]
+    fn test_read8_scr() {
+        let mut uart = create_uart();
+        uart.scr = 0xAB;
+        assert_eq!(uart.read8(UART_SCR), 0xAB);
     }
 }
