@@ -311,11 +311,12 @@ UART_IRQ  = 10 (PLIC용)
 
 **목표**: Bus에서 UART offset 전달
 
-- [ ] Bus read8에서 UART offset 계산하여 전달
-- [ ] Bus write8에서 UART offset 계산하여 전달
-- [ ] `check_uart_interrupt()` 메서드 추가
+- [x] Bus read8에서 UART offset 계산하여 전달 (Step 5에서 완료)
+- [x] Bus write8에서 UART offset 계산하여 전달 (Step 6에서 완료)
+- [x] `check_uart_interrupt()` 메서드 추가
+- [x] UART 초기 iir 값 수정 (IIR_FIFO_ENABLED | IIR_NO_INTERRUPT)
 
-**검증**: Bus를 통한 UART 레지스터 접근 테스트
+**검증**: Bus를 통한 UART 인터럽트 테스트 완료
 
 ---
 
