@@ -324,12 +324,13 @@ UART_IRQ  = 10 (PLIC용)
 
 **목표**: UART 인터럽트를 CPU로 전달
 
-- [ ] 방법 결정 (직접 연결 or PLIC)
-- [ ] CPU check_pending_interrupts에서 UART 인터럽트 체크
-- [ ] MIP.MEIP 비트 업데이트
-- [ ] 외부 인터럽트 트랩 처리
+- [x] 방법 결정: CPU 직접 연결 (PLIC는 나중에)
+- [x] CPU check_pending_interrupts에서 UART 인터럽트 체크
+- [x] MIP.MEIP 비트 업데이트
+- [x] 외부 인터럽트 트랩 처리 (우선순위: Software > Timer > External)
+- [x] Bus::push_uart_input() 추가
 
-**검증**: 수신 데이터 → 인터럽트 핸들러 진입 테스트
+**검증**: UART 외부 인터럽트 테스트 완료
 
 ---
 
