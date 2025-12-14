@@ -77,24 +77,49 @@ impl Uart {
         }
     }
 
+    fn update_lsr(&mut self) {
+        if !self.rx_fifo.is_empty() {
+            self.lsr |= LSR_DR;
+        } else {
+            self.lsr &= !LSR_DR;
+        }
+
+        if self.tx_fifo.is_empty() {
+            self.lsr |= LSR_THRE;
+            if self.tsr.is_none() {
+                self.lsr |= LSR_TEMT;
+            } else {
+                self.lsr &= !LSR_TEMT;
+            }
+        } else {
+            self.lsr &= !(LSR_THRE | LSR_TEMT);
+        }
+    }
+
     fn tx_fifo_push(&mut self, data: u8) {
         if self.tx_fifo.len() < 16 {
             self.tx_fifo.push_back(data);
+            self.update_lsr();
         }
     }
 
     fn tx_fifo_pop(&mut self) -> Option<u8> {
-        self.tx_fifo.pop_front()
+        let res = self.tx_fifo.pop_front();
+        self.update_lsr();
+        res
     }
 
     fn rx_fifo_push(&mut self, data: u8) {
         if self.rx_fifo.len() < 16 {
             self.rx_fifo.push_back(data);
+            self.update_lsr();
         }
     }
 
     fn rx_fifo_pop(&mut self) -> Option<u8> {
-        self.rx_fifo.pop_front()
+        let res = self.rx_fifo.pop_front();
+        self.update_lsr();
+        res
     }
 }
 
@@ -234,5 +259,87 @@ mod tests {
 
         // transmit 후 TSR은 비어있어야 함
         assert!(uart.tsr.is_none());
+    }
+
+    // Step 4: LSR 상태 관리 테스트
+    #[test]
+    fn test_lsr_initial_state() {
+        let uart = create_uart();
+        // 초기: TX FIFO 비어있음, TSR 비어있음
+        assert_eq!(uart.lsr & LSR_THRE, LSR_THRE); // THRE = 1
+        assert_eq!(uart.lsr & LSR_TEMT, LSR_TEMT); // TEMT = 1
+        assert_eq!(uart.lsr & LSR_DR, 0); // DR = 0
+    }
+
+    #[test]
+    fn test_lsr_dr_set_when_rx_has_data() {
+        let mut uart = create_uart();
+
+        // RX FIFO에 데이터 추가
+        uart.rx_fifo_push(b'A');
+
+        // DR = 1
+        assert_eq!(uart.lsr & LSR_DR, LSR_DR);
+    }
+
+    #[test]
+    fn test_lsr_dr_clear_when_rx_empty() {
+        let mut uart = create_uart();
+
+        uart.rx_fifo_push(b'A');
+        assert_eq!(uart.lsr & LSR_DR, LSR_DR); // DR = 1
+
+        uart.rx_fifo_pop();
+        assert_eq!(uart.lsr & LSR_DR, 0); // DR = 0
+    }
+
+    #[test]
+    fn test_lsr_thre_clear_when_tx_has_data() {
+        let mut uart = create_uart();
+
+        // TX FIFO에 데이터 추가
+        uart.tx_fifo_push(b'A');
+
+        // THRE = 0 (TX FIFO에 데이터 있음)
+        assert_eq!(uart.lsr & LSR_THRE, 0);
+    }
+
+    #[test]
+    fn test_lsr_thre_set_when_tx_empty() {
+        let mut uart = create_uart();
+
+        uart.tx_fifo_push(b'A');
+        assert_eq!(uart.lsr & LSR_THRE, 0); // THRE = 0
+
+        uart.tx_fifo_pop();
+        assert_eq!(uart.lsr & LSR_THRE, LSR_THRE); // THRE = 1
+    }
+
+    #[test]
+    fn test_lsr_temt_clear_when_tsr_has_data() {
+        let mut uart = create_uart();
+
+        // TSR에 직접 데이터 설정
+        uart.tsr = Some(b'X');
+        uart.update_lsr();
+
+        // TEMT = 0 (TSR에 데이터 있음)
+        assert_eq!(uart.lsr & LSR_TEMT, 0);
+    }
+
+    #[test]
+    fn test_lsr_temt_set_when_both_empty() {
+        let mut uart = create_uart();
+
+        // TX FIFO와 TSR 모두 비어있음
+        assert_eq!(uart.lsr & LSR_TEMT, LSR_TEMT); // TEMT = 1
+
+        // TX FIFO에 데이터 추가
+        uart.tx_fifo_push(b'A');
+        assert_eq!(uart.lsr & LSR_TEMT, 0); // TEMT = 0
+
+        // TX FIFO 비우기
+        uart.tx_fifo_pop();
+        assert_eq!(uart.lsr & LSR_TEMT, LSR_TEMT); // TEMT = 1
     }
 }
