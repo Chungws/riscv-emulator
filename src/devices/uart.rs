@@ -66,15 +66,65 @@ impl Uart {
         print!("{}", value as char);
         stdout().flush().unwrap();
     }
+
+    pub fn transmit(&mut self) {
+        if self.tsr.is_none() {
+            self.tsr = self.tx_fifo_pop();
+        }
+
+        if let Some(data) = self.tsr.take() {
+            self.terminal.write(data);
+        }
+    }
+
+    fn tx_fifo_push(&mut self, data: u8) {
+        if self.tx_fifo.len() < 16 {
+            self.tx_fifo.push_back(data);
+        }
+    }
+
+    fn tx_fifo_pop(&mut self) -> Option<u8> {
+        self.tx_fifo.pop_front()
+    }
+
+    fn rx_fifo_push(&mut self, data: u8) {
+        if self.rx_fifo.len() < 16 {
+            self.rx_fifo.push_back(data);
+        }
+    }
+
+    fn rx_fifo_pop(&mut self) -> Option<u8> {
+        self.rx_fifo.pop_front()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::devices::terminal::tests::MockTerminal;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    /// 테스트용 SharedMockTerminal - Rc<RefCell>로 MockTerminal을 감싸서 공유 가능하게 함
+    struct SharedMockTerminal(Rc<RefCell<MockTerminal>>);
+
+    impl Terminal for SharedMockTerminal {
+        fn write(&mut self, data: u8) {
+            self.0.borrow_mut().output.push(data);
+        }
+        fn read(&mut self) -> Option<u8> {
+            self.0.borrow_mut().input.pop_front()
+        }
+    }
 
     fn create_uart() -> Uart {
         Uart::new(Box::new(MockTerminal::new()))
+    }
+
+    fn create_uart_with_mock() -> (Uart, Rc<RefCell<MockTerminal>>) {
+        let mock = Rc::new(RefCell::new(MockTerminal::new()));
+        let uart = Uart::new(Box::new(SharedMockTerminal(mock.clone())));
+        (uart, mock)
     }
 
     #[test]
@@ -97,5 +147,92 @@ mod tests {
         assert_eq!(uart.fcr, 0);
         assert_eq!(uart.lcr, 0);
         assert_eq!(uart.scr, 0);
+    }
+
+    // Step 3: FIFO 테스트
+    #[test]
+    fn test_tx_fifo_push_pop() {
+        let mut uart = create_uart();
+
+        uart.tx_fifo_push(b'A');
+        uart.tx_fifo_push(b'B');
+
+        assert_eq!(uart.tx_fifo.len(), 2);
+        assert_eq!(uart.tx_fifo_pop(), Some(b'A'));
+        assert_eq!(uart.tx_fifo_pop(), Some(b'B'));
+        assert_eq!(uart.tx_fifo_pop(), None);
+    }
+
+    #[test]
+    fn test_tx_fifo_max_16_bytes() {
+        let mut uart = create_uart();
+
+        // 16바이트까지만 저장
+        for i in 0..20 {
+            uart.tx_fifo_push(i);
+        }
+
+        assert_eq!(uart.tx_fifo.len(), 16);
+    }
+
+    #[test]
+    fn test_rx_fifo_push_pop() {
+        let mut uart = create_uart();
+
+        uart.rx_fifo_push(b'X');
+        uart.rx_fifo_push(b'Y');
+
+        assert_eq!(uart.rx_fifo.len(), 2);
+        assert_eq!(uart.rx_fifo_pop(), Some(b'X'));
+        assert_eq!(uart.rx_fifo_pop(), Some(b'Y'));
+        assert_eq!(uart.rx_fifo_pop(), None);
+    }
+
+    #[test]
+    fn test_rx_fifo_max_16_bytes() {
+        let mut uart = create_uart();
+
+        for i in 0..20 {
+            uart.rx_fifo_push(i);
+        }
+
+        assert_eq!(uart.rx_fifo.len(), 16);
+    }
+
+    // Step 3: transmit 테스트
+    #[test]
+    fn test_transmit_from_tx_fifo() {
+        let (mut uart, mock) = create_uart_with_mock();
+
+        uart.tx_fifo_push(b'H');
+        uart.tx_fifo_push(b'i');
+
+        // transmit 호출 - TX FIFO → TSR → Terminal
+        uart.transmit();
+        uart.transmit();
+
+        // Terminal에 출력 확인
+        assert_eq!(mock.borrow().output_as_string(), "Hi");
+    }
+
+    #[test]
+    fn test_transmit_empty_fifo() {
+        let (mut uart, mock) = create_uart_with_mock();
+
+        // 빈 FIFO에서 transmit - 아무것도 출력 안 됨
+        uart.transmit();
+
+        assert_eq!(mock.borrow().output.len(), 0);
+    }
+
+    #[test]
+    fn test_transmit_clears_tsr() {
+        let (mut uart, _mock) = create_uart_with_mock();
+
+        uart.tx_fifo_push(b'A');
+        uart.transmit();
+
+        // transmit 후 TSR은 비어있어야 함
+        assert!(uart.tsr.is_none());
     }
 }
