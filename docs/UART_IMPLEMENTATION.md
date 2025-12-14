@@ -280,13 +280,15 @@ UART_IRQ  = 10 (PLIC용)
 
 **목표**: IIR 업데이트 및 인터럽트 감지
 
-- [ ] `update_iir()` 메서드 추가
-- [ ] RX 인터럽트: IER.RX_ENABLE && !rx_fifo.is_empty()
-- [ ] TX 인터럽트: IER.TX_ENABLE && tx_fifo.is_empty()
-- [ ] 인터럽트 우선순위: RX > TX
-- [ ] `check_interrupt() -> bool` 메서드 추가
+- [x] `update_iir()` 메서드 추가
+- [x] RX 인터럽트: IER.RX_ENABLE && !rx_fifo.is_empty()
+- [x] TX 인터럽트: IER.TX_ENABLE && tx_fifo.is_empty()
+- [x] 인터럽트 우선순위: RX > TX
+- [x] `check_interrupt() -> bool` 메서드 추가
+- [x] IIR_FIFO_ENABLED (0xC0) 항상 설정
+- [x] fcr 필드 제거 (FIFO 항상 활성화)
 
-**검증**: 수신 데이터 있을 때 인터럽트 발생 테스트
+**검증**: 인터럽트 발생/해제 테스트 완료
 
 ---
 
