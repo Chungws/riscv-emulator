@@ -1,7 +1,4 @@
-use std::{
-    collections::VecDeque,
-    io::{Write, stdout},
-};
+use std::collections::VecDeque;
 
 use crate::devices::terminal::Terminal;
 
@@ -79,9 +76,31 @@ impl Uart {
         }
     }
 
-    pub fn write8(&mut self, value: u8) {
-        print!("{}", value as char);
-        stdout().flush().unwrap();
+    pub fn write8(&mut self, offset: u8, value: u8) {
+        match offset {
+            UART_THR => {
+                self.tx_fifo_push(value);
+                self.transmit();
+            }
+            UART_IER => {
+                self.ier = (self.ier & 0xF0) | (value & 0x0F);
+            }
+            UART_FCR => {
+                if value & 0x2 != 0 {
+                    self.rx_fifo.clear();
+                }
+                if value & 0x4 != 0 {
+                    self.tx_fifo.clear();
+                }
+            }
+            UART_LCR => {
+                self.lcr = value;
+            }
+            UART_SCR => {
+                self.scr = value;
+            }
+            _ => panic!("Not Supported Offset"),
+        }
     }
 
     pub fn transmit(&mut self) {
@@ -422,5 +441,73 @@ mod tests {
         let mut uart = create_uart();
         uart.scr = 0xAB;
         assert_eq!(uart.read8(UART_SCR), 0xAB);
+    }
+
+    // Step 6: 레지스터 쓰기 테스트
+    #[test]
+    fn test_write8_thr() {
+        let (mut uart, mock) = create_uart_with_mock();
+
+        // THR에 쓰기 → TX FIFO → transmit → Terminal
+        uart.write8(UART_THR, b'H');
+        uart.write8(UART_THR, b'i');
+
+        assert_eq!(mock.borrow().output_as_string(), "Hi");
+    }
+
+    #[test]
+    fn test_write8_ier() {
+        let mut uart = create_uart();
+
+        // 하위 4비트만 저장
+        uart.write8(UART_IER, 0xFF);
+        assert_eq!(uart.ier, 0x0F);
+
+        uart.write8(UART_IER, 0x03);
+        assert_eq!(uart.ier, 0x03);
+    }
+
+    #[test]
+    fn test_write8_fcr_rx_reset() {
+        let mut uart = create_uart();
+
+        // RX FIFO에 데이터 추가
+        uart.rx_fifo_push(b'A');
+        uart.rx_fifo_push(b'B');
+        assert_eq!(uart.rx_fifo.len(), 2);
+
+        // FCR bit 1: RX FIFO 리셋
+        uart.write8(UART_FCR, 0x02);
+        assert!(uart.rx_fifo.is_empty());
+    }
+
+    #[test]
+    fn test_write8_fcr_tx_reset() {
+        let mut uart = create_uart();
+
+        // TX FIFO에 데이터 추가 (transmit 호출 안 하고 직접)
+        uart.tx_fifo.push_back(b'A');
+        uart.tx_fifo.push_back(b'B');
+        assert_eq!(uart.tx_fifo.len(), 2);
+
+        // FCR bit 2: TX FIFO 리셋
+        uart.write8(UART_FCR, 0x04);
+        assert!(uart.tx_fifo.is_empty());
+    }
+
+    #[test]
+    fn test_write8_lcr() {
+        let mut uart = create_uart();
+
+        uart.write8(UART_LCR, 0x03);
+        assert_eq!(uart.lcr, 0x03);
+    }
+
+    #[test]
+    fn test_write8_scr() {
+        let mut uart = create_uart();
+
+        uart.write8(UART_SCR, 0xCD);
+        assert_eq!(uart.scr, 0xCD);
     }
 }

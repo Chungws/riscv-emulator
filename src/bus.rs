@@ -61,7 +61,7 @@ impl Bus {
     }
     pub fn write8(&mut self, addr: u64, value: u8) {
         if addr >= devices::UART_BASE && addr < devices::UART_BASE + devices::UART_SIZE {
-            self.uart.write8(value);
+            self.uart.write8((addr - devices::UART_BASE) as u8, value);
         } else if addr >= devices::DRAM_BASE {
             self.memory.write8(addr, value);
         } else {
@@ -71,7 +71,8 @@ impl Bus {
 
     pub fn write16(&mut self, addr: u64, value: u16) {
         if addr >= devices::UART_BASE && addr < devices::UART_BASE + devices::UART_SIZE {
-            self.uart.write8(value as u8);
+            self.uart
+                .write8((addr - devices::UART_BASE) as u8, value as u8);
         } else if addr >= devices::DRAM_BASE {
             self.memory.write16(addr, value);
         } else {
@@ -83,7 +84,8 @@ impl Bus {
         if addr >= devices::CLINT_BASE && addr < devices::CLINT_BASE + devices::CLINT_SIZE {
             self.clint.write32(addr - devices::CLINT_BASE, value);
         } else if addr >= devices::UART_BASE && addr < devices::UART_BASE + devices::UART_SIZE {
-            self.uart.write8(value as u8);
+            self.uart
+                .write8((addr - devices::UART_BASE) as u8, value as u8);
         } else if addr >= devices::DRAM_BASE {
             self.memory.write32(addr, value);
         } else {
@@ -95,7 +97,8 @@ impl Bus {
         if addr >= devices::CLINT_BASE && addr < devices::CLINT_BASE + devices::CLINT_SIZE {
             self.clint.write64(addr - devices::CLINT_BASE, value);
         } else if addr >= devices::UART_BASE && addr < devices::UART_BASE + devices::UART_SIZE {
-            self.uart.write8(value as u8);
+            self.uart
+                .write8((addr - devices::UART_BASE) as u8, value as u8);
         } else if addr >= devices::DRAM_BASE {
             self.memory.write64(addr, value);
         } else {
