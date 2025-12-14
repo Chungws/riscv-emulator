@@ -338,12 +338,13 @@ UART_IRQ  = 10 (PLIC용)
 
 **목표**: 실시간 키보드 입력
 
-- [ ] 별도 스레드에서 stdin 읽기
-- [ ] mpsc 채널로 메인 스레드에 전달
-- [ ] 메인 루프에서 try_recv()로 확인
-- [ ] StdioTerminal에 입력 전달
+- [x] 별도 스레드에서 stdin 읽기
+- [x] mpsc 채널로 StdioTerminal에 전달
+- [x] StdioTerminal.read()에서 try_recv()로 확인
+- [x] CPU.step()에서 receive_uart_input() 호출
+- [x] Bus::receive_uart_input() 추가
 
-**검증**: 에코 프로그램 테스트
+**검증**: 테스트 통과 (실제 에코는 OS 프로그램 필요)
 
 ---
 
