@@ -219,16 +219,16 @@ UART_IRQ  = 10 (PLIC용)
 
 **목표**: TX/RX FIFO와 TSR 동작 구현
 
-- [ ] `tx_fifo_push(data)`: TX FIFO에 추가 (최대 16바이트)
-- [ ] `tx_fifo_pop() -> Option<u8>`: TX FIFO에서 꺼내기
-- [ ] `rx_fifo_push(data)`: RX FIFO에 추가
-- [ ] `rx_fifo_pop() -> Option<u8>`: RX FIFO에서 꺼내기
-- [ ] `transmit()`: TX FIFO → TSR → Terminal 전송
+- [x] `tx_fifo_push(data)`: TX FIFO에 추가 (최대 16바이트)
+- [x] `tx_fifo_pop() -> Option<u8>`: TX FIFO에서 꺼내기
+- [x] `rx_fifo_push(data)`: RX FIFO에 추가
+- [x] `rx_fifo_pop() -> Option<u8>`: RX FIFO에서 꺼내기
+- [x] `transmit()`: TX FIFO → TSR → Terminal 전송
   - TSR이 비어있으면 FIFO에서 로드
   - Terminal.write() 호출
   - TSR 비움
 
-**검증**: FIFO push/pop, transmit 동작 테스트
+**검증**: FIFO push/pop, transmit 동작 테스트 완료
 
 ---
 
