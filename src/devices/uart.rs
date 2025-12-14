@@ -104,7 +104,21 @@ impl Uart {
         }
     }
 
-    pub fn transmit(&mut self) {
+    pub fn receive_input(&mut self) {
+        if let Some(data) = self.terminal.read() {
+            self.rx_fifo_push(data);
+        }
+    }
+
+    pub fn push_input(&mut self, data: u8) {
+        self.rx_fifo_push(data);
+    }
+
+    pub fn check_interrupt(&self) -> bool {
+        self.iir & IIR_NO_INTERRUPT == 0
+    }
+
+    fn transmit(&mut self) {
         if self.tsr.is_none() {
             self.tsr = self.tx_fifo_pop();
         }
@@ -143,10 +157,6 @@ impl Uart {
             return;
         }
         self.iir = IIR_FIFO_ENABLED | IIR_NO_INTERRUPT;
-    }
-
-    fn check_interrupt(&self) -> bool {
-        self.iir & IIR_NO_INTERRUPT == 0
     }
 
     fn tx_fifo_push(&mut self, data: u8) {
@@ -627,5 +637,72 @@ mod tests {
         uart.rx_fifo_push(b'Z');
 
         assert!(uart.check_interrupt());
+    }
+
+    // Step 8: 외부 입력 메서드 테스트
+    #[test]
+    fn test_push_input() {
+        let mut uart = create_uart();
+
+        // push_input으로 데이터 주입
+        uart.push_input(b'H');
+        uart.push_input(b'i');
+
+        // RX FIFO에 데이터 들어감
+        assert_eq!(uart.rx_fifo.len(), 2);
+
+        // LSR.DR = 1
+        assert_eq!(uart.lsr & LSR_DR, LSR_DR);
+
+        // RBR로 읽기
+        assert_eq!(uart.read8(UART_RBR), b'H');
+        assert_eq!(uart.read8(UART_RBR), b'i');
+    }
+
+    #[test]
+    fn test_push_input_triggers_interrupt() {
+        let mut uart = create_uart();
+
+        // RX 인터럽트 활성화
+        uart.write8(UART_IER, IER_RX_ENABLE);
+
+        // 인터럽트 없음
+        assert!(!uart.check_interrupt());
+
+        // push_input → 인터럽트 발생
+        uart.push_input(b'X');
+
+        assert!(uart.check_interrupt());
+        assert_eq!(uart.iir, IIR_FIFO_ENABLED | IIR_RX_INTERRUPT);
+    }
+
+    #[test]
+    fn test_receive_input_from_terminal() {
+        let (mut uart, mock) = create_uart_with_mock();
+
+        // Terminal에 입력 데이터 설정
+        mock.borrow_mut().input.push_back(b'A');
+        mock.borrow_mut().input.push_back(b'B');
+
+        // receive_input 호출
+        uart.receive_input();
+        uart.receive_input();
+
+        // RX FIFO에 데이터 들어감
+        assert_eq!(uart.rx_fifo.len(), 2);
+        assert_eq!(uart.read8(UART_RBR), b'A');
+        assert_eq!(uart.read8(UART_RBR), b'B');
+    }
+
+    #[test]
+    fn test_receive_input_empty_terminal() {
+        let (mut uart, _mock) = create_uart_with_mock();
+
+        // Terminal에 입력 없음
+        uart.receive_input();
+
+        // RX FIFO 비어있음
+        assert!(uart.rx_fifo.is_empty());
+        assert_eq!(uart.lsr & LSR_DR, 0);
     }
 }
