@@ -265,14 +265,14 @@ UART_IRQ  = 10 (PLIC용)
 
 **목표**: 오프셋별 쓰기 구현
 
-- [ ] `write8(offset, value)` 메서드 구현
-- [ ] THR (오프셋 0): tx_fifo에 push, transmit() 호출
-- [ ] IER (오프셋 1): 하위 4비트만 저장
-- [ ] FCR (오프셋 2): FIFO 리셋 처리
-- [ ] LCR (오프셋 3): lcr에 저장
-- [ ] SCR (오프셋 7): scr에 저장
+- [x] `write8(offset, value)` 메서드 구현
+- [x] THR (오프셋 0): tx_fifo에 push, transmit() 호출
+- [x] IER (오프셋 1): 하위 4비트만 저장
+- [x] FCR (오프셋 2): FIFO 리셋 처리
+- [x] LCR (오프셋 3): lcr에 저장
+- [x] SCR (오프셋 7): scr에 저장
 
-**검증**: THR 쓰기 → Terminal 출력 확인
+**검증**: THR 쓰기 → Terminal 출력 테스트 완료
 
 ---
 
