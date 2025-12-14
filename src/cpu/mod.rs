@@ -118,6 +118,7 @@ impl Cpu {
     }
 
     pub fn step(&mut self) {
+        self.bus.receive_uart_input();
         self.bus.tick();
         if self.check_pending_interrupts() {
             return;

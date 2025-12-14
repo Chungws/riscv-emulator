@@ -9,10 +9,11 @@ pub struct Bus {
 
 impl Bus {
     pub fn new() -> Self {
+        let (terminal, _handle) = StdioTerminal::new();
         Self {
             clint: devices::Clint::new(),
             memory: devices::Memory::new(),
-            uart: devices::Uart::new(Box::new(StdioTerminal)),
+            uart: devices::Uart::new(Box::new(terminal)),
         }
     }
 
@@ -124,6 +125,10 @@ impl Bus {
 
     pub fn push_uart_input(&mut self, data: u8) {
         self.uart.push_input(data);
+    }
+
+    pub fn receive_uart_input(&mut self) {
+        self.uart.receive_input();
     }
 }
 
