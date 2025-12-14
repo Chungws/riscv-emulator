@@ -21,10 +21,10 @@ const LSR_TEMT: u8 = 0x1 << 6;
 const IER_RX_ENABLE: u8 = 0x1;
 const IER_TX_ENABLE: u8 = 0x1 << 1;
 
-const IIR_NO_INTERRUPT: u8 = 0x1;
-const IIR_RX_DATA: u8 = 0x1;
-const IIR_THR_EMPTY: u8 = 0x1;
-const IIR_FIFO_ENABLED: u8 = 0x1;
+const IIR_NO_INTERRUPT: u8 = 0x01;
+const IIR_RX_INTERRUPT: u8 = 0x04;
+const IIR_TX_INTERRUPT: u8 = 0x02;
+const IIR_FIFO_ENABLED: u8 = 0xC0;
 
 pub struct Uart {
     rx_fifo: VecDeque<u8>,
@@ -32,7 +32,6 @@ pub struct Uart {
     tsr: Option<u8>,
     ier: u8,
     iir: u8,
-    fcr: u8,
     lcr: u8,
     lsr: u8,
     scr: u8,
@@ -47,7 +46,6 @@ impl Uart {
             tsr: None,
             ier: 0,
             iir: 0,
-            fcr: 0,
             lcr: 0,
             lsr: LSR_TEMT | LSR_THRE,
             scr: 0,
@@ -60,6 +58,7 @@ impl Uart {
             UART_RBR => {
                 if let Some(data) = self.rx_fifo_pop() {
                     self.update_lsr();
+                    self.update_iir();
                     return data;
                 }
                 0
@@ -81,9 +80,11 @@ impl Uart {
             UART_THR => {
                 self.tx_fifo_push(value);
                 self.transmit();
+                self.update_iir();
             }
             UART_IER => {
                 self.ier = (self.ier & 0xF0) | (value & 0x0F);
+                self.update_iir();
             }
             UART_FCR => {
                 if value & 0x2 != 0 {
@@ -132,6 +133,22 @@ impl Uart {
         }
     }
 
+    fn update_iir(&mut self) {
+        if self.ier & IER_RX_ENABLE != 0 && !self.rx_fifo.is_empty() {
+            self.iir = IIR_FIFO_ENABLED | IIR_RX_INTERRUPT;
+            return;
+        }
+        if self.ier & IER_TX_ENABLE != 0 && self.tx_fifo.is_empty() {
+            self.iir = IIR_FIFO_ENABLED | IIR_TX_INTERRUPT;
+            return;
+        }
+        self.iir = IIR_FIFO_ENABLED | IIR_NO_INTERRUPT;
+    }
+
+    fn check_interrupt(&self) -> bool {
+        self.iir & IIR_NO_INTERRUPT == 0
+    }
+
     fn tx_fifo_push(&mut self, data: u8) {
         if self.tx_fifo.len() < 16 {
             self.tx_fifo.push_back(data);
@@ -149,6 +166,7 @@ impl Uart {
         if self.rx_fifo.len() < 16 {
             self.rx_fifo.push_back(data);
             self.update_lsr();
+            self.update_iir();
         }
     }
 
@@ -205,7 +223,6 @@ mod tests {
         let uart = create_uart();
         assert_eq!(uart.ier, 0);
         assert_eq!(uart.iir, 0);
-        assert_eq!(uart.fcr, 0);
         assert_eq!(uart.lcr, 0);
         assert_eq!(uart.scr, 0);
     }
@@ -509,5 +526,106 @@ mod tests {
 
         uart.write8(UART_SCR, 0xCD);
         assert_eq!(uart.scr, 0xCD);
+    }
+
+    // Step 7: 인터럽트 상태 관리 테스트
+    #[test]
+    fn test_update_iir_no_interrupt() {
+        let mut uart = create_uart();
+
+        // IER = 0 (인터럽트 비활성)
+        uart.update_iir();
+
+        assert_eq!(uart.iir, IIR_FIFO_ENABLED | IIR_NO_INTERRUPT);
+        assert!(!uart.check_interrupt());
+    }
+
+    #[test]
+    fn test_update_iir_rx_interrupt() {
+        let mut uart = create_uart();
+
+        // RX 인터럽트 활성화
+        uart.write8(UART_IER, IER_RX_ENABLE);
+
+        // RX FIFO에 데이터 추가
+        uart.rx_fifo_push(b'A');
+
+        assert_eq!(uart.iir, IIR_FIFO_ENABLED | IIR_RX_INTERRUPT);
+        assert!(uart.check_interrupt());
+    }
+
+    #[test]
+    fn test_update_iir_tx_interrupt() {
+        let mut uart = create_uart();
+
+        // TX 인터럽트 활성화
+        uart.write8(UART_IER, IER_TX_ENABLE);
+
+        // TX FIFO 비어있음 → TX 인터럽트 발생
+        assert_eq!(uart.iir, IIR_FIFO_ENABLED | IIR_TX_INTERRUPT);
+        assert!(uart.check_interrupt());
+    }
+
+    #[test]
+    fn test_update_iir_rx_priority_over_tx() {
+        let mut uart = create_uart();
+
+        // RX, TX 둘 다 활성화
+        uart.write8(UART_IER, IER_RX_ENABLE | IER_TX_ENABLE);
+
+        // TX FIFO 비어있고, RX FIFO에 데이터 있음
+        uart.rx_fifo_push(b'A');
+
+        // RX 우선순위가 높음
+        assert_eq!(uart.iir, IIR_FIFO_ENABLED | IIR_RX_INTERRUPT);
+    }
+
+    #[test]
+    fn test_iir_clear_after_rbr_read() {
+        let mut uart = create_uart();
+
+        // RX 인터럽트 활성화 + 데이터 추가
+        uart.write8(UART_IER, IER_RX_ENABLE);
+        uart.rx_fifo_push(b'A');
+
+        assert_eq!(uart.iir, IIR_FIFO_ENABLED | IIR_RX_INTERRUPT);
+        assert!(uart.check_interrupt());
+
+        // RBR 읽기 → RX FIFO 비워짐 → 인터럽트 해제
+        uart.read8(UART_RBR);
+
+        assert_eq!(uart.iir, IIR_FIFO_ENABLED | IIR_NO_INTERRUPT);
+        assert!(!uart.check_interrupt());
+    }
+
+    #[test]
+    fn test_iir_tx_clear_after_thr_write() {
+        let (mut uart, _mock) = create_uart_with_mock();
+
+        // TX 인터럽트 활성화 (TX FIFO 비어있으므로 인터럽트 발생)
+        uart.write8(UART_IER, IER_TX_ENABLE);
+        assert_eq!(uart.iir, IIR_FIFO_ENABLED | IIR_TX_INTERRUPT);
+
+        // THR에 쓰기 → TX FIFO에 데이터 들어감
+        // 하지만 transmit()이 즉시 호출되어 비워지므로 다시 TX 인터럽트
+        uart.write8(UART_THR, b'X');
+
+        // transmit 후 TX FIFO 비어있으므로 TX 인터럽트 유지
+        assert_eq!(uart.iir, IIR_FIFO_ENABLED | IIR_TX_INTERRUPT);
+    }
+
+    #[test]
+    fn test_check_interrupt_returns_correct_value() {
+        let mut uart = create_uart();
+
+        // 초기: 인터럽트 없음
+        uart.update_iir();
+        assert!(!uart.check_interrupt());
+
+        // RX 인터럽트 활성화 + 데이터 추가
+        uart.write8(UART_IER, IER_RX_ENABLE);
+        uart.rx_fifo_push(b'Z');
+
+        assert!(uart.check_interrupt());
     }
 }
