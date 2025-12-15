@@ -143,16 +143,16 @@ RISC-V 툴체인으로 빌드한 프로그램은 ELF 형식.
 
 ## 5. 구현 단계
 
-### Step 1: ELF 상수 정의
+### Step 1: ELF 상수 정의 ✅
 
 **목표**: ELF 관련 상수 정의
 
-- [ ] Magic number 상수 (0x7F, 'E', 'L', 'F')
-- [ ] Class 상수 (ELFCLASS64 = 2)
-- [ ] Machine 상수 (EM_RISCV = 0xF3)
-- [ ] Type 상수 (PT_LOAD = 1)
+- [x] Magic number 상수 (0x7F, 'E', 'L', 'F')
+- [x] Class 상수 (ELFCLASS64 = 2)
+- [x] Machine 상수 (EM_RISCV = 0xF3)
+- [x] Type 상수 (PT_LOAD = 1)
 
-**검증**: 상수 정의 확인
+**검증**: 상수 정의 확인 ✅
 
 ---
 

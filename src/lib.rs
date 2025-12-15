@@ -3,6 +3,7 @@ pub mod cpu;
 pub mod csr;
 pub mod decoder;
 pub mod devices;
+pub mod elf;
 
 pub use bus::Bus;
 pub use cpu::Cpu;
