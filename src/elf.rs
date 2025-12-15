@@ -81,6 +81,52 @@ impl ElfHeader {
     }
 }
 
+pub struct ProgramHeader {
+    p_type: u32,
+    p_flags: u32,
+    p_offset: u64,
+    p_vaddr: u64,
+    p_paddr: u64,
+    p_filesz: u64,
+    p_memsz: u64,
+    p_align: u64,
+}
+
+impl ProgramHeader {
+    pub fn parse(bytes: &[u8]) -> Self {
+        ProgramHeader {
+            p_type: u32::from_le_bytes(bytes[0x00..0x04].try_into().unwrap()),
+            p_flags: u32::from_le_bytes(bytes[0x04..0x08].try_into().unwrap()),
+            p_offset: u64::from_le_bytes(bytes[0x08..0x10].try_into().unwrap()),
+            p_vaddr: u64::from_le_bytes(bytes[0x10..0x18].try_into().unwrap()),
+            p_paddr: u64::from_le_bytes(bytes[0x18..0x20].try_into().unwrap()),
+            p_filesz: u64::from_le_bytes(bytes[0x20..0x28].try_into().unwrap()),
+            p_memsz: u64::from_le_bytes(bytes[0x28..0x30].try_into().unwrap()),
+            p_align: u64::from_le_bytes(bytes[0x30..0x38].try_into().unwrap()),
+        }
+    }
+
+    pub fn p_type(&self) -> u32 {
+        self.p_type
+    }
+
+    pub fn vaddr(&self) -> u64 {
+        self.p_vaddr
+    }
+
+    pub fn offset(&self) -> u64 {
+        self.p_offset
+    }
+
+    pub fn filesz(&self) -> u64 {
+        self.p_filesz
+    }
+
+    pub fn memsz(&self) -> u64 {
+        self.p_memsz
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -163,5 +209,54 @@ mod tests {
             ElfHeader::parse(&bytes),
             Err(ElfError::InvalidMachine)
         ));
+    }
+
+    fn create_program_header(p_type: u32, vaddr: u64, offset: u64, filesz: u64, memsz: u64) -> [u8; 56] {
+        let mut ph = [0u8; 56];
+        // p_type (0x00-0x03)
+        ph[0x00..0x04].copy_from_slice(&p_type.to_le_bytes());
+        // p_flags (0x04-0x07): R|W|X = 7
+        ph[0x04..0x08].copy_from_slice(&7u32.to_le_bytes());
+        // p_offset (0x08-0x0F)
+        ph[0x08..0x10].copy_from_slice(&offset.to_le_bytes());
+        // p_vaddr (0x10-0x17)
+        ph[0x10..0x18].copy_from_slice(&vaddr.to_le_bytes());
+        // p_paddr (0x18-0x1F)
+        ph[0x18..0x20].copy_from_slice(&vaddr.to_le_bytes());
+        // p_filesz (0x20-0x27)
+        ph[0x20..0x28].copy_from_slice(&filesz.to_le_bytes());
+        // p_memsz (0x28-0x2F)
+        ph[0x28..0x30].copy_from_slice(&memsz.to_le_bytes());
+        // p_align (0x30-0x37)
+        ph[0x30..0x38].copy_from_slice(&0x1000u64.to_le_bytes());
+        ph
+    }
+
+    #[test]
+    fn test_program_header_parse() {
+        let ph_bytes = create_program_header(PT_LOAD, 0x80000000, 0x1000, 0x2000, 0x3000);
+        let ph = ProgramHeader::parse(&ph_bytes);
+        assert_eq!(ph.p_type(), PT_LOAD);
+        assert_eq!(ph.vaddr(), 0x80000000);
+        assert_eq!(ph.offset(), 0x1000);
+        assert_eq!(ph.filesz(), 0x2000);
+        assert_eq!(ph.memsz(), 0x3000);
+    }
+
+    #[test]
+    fn test_program_header_pt_null() {
+        let ph_bytes = create_program_header(0, 0, 0, 0, 0); // PT_NULL
+        let ph = ProgramHeader::parse(&ph_bytes);
+        assert_eq!(ph.p_type(), 0);
+    }
+
+    #[test]
+    fn test_program_header_bss_section() {
+        // BSS: memsz > filesz (나머지는 0으로 채워야 함)
+        let ph_bytes = create_program_header(PT_LOAD, 0x80010000, 0x2000, 0x1000, 0x5000);
+        let ph = ProgramHeader::parse(&ph_bytes);
+        assert_eq!(ph.filesz(), 0x1000);
+        assert_eq!(ph.memsz(), 0x5000);
+        assert!(ph.memsz() > ph.filesz()); // BSS 영역 존재
     }
 }

@@ -171,16 +171,16 @@ RISC-V 툴체인으로 빌드한 프로그램은 ELF 형식.
 
 ---
 
-### Step 3: Program Header 파싱
+### Step 3: Program Header 파싱 ✅
 
 **목표**: Program Header 읽기
 
-- [ ] ProgramHeader 구조체 정의
-- [ ] e_phoff 위치에서 읽기
-- [ ] e_phnum개의 Program Header 파싱
-- [ ] p_type, p_offset, p_vaddr, p_filesz, p_memsz 추출
+- [x] ProgramHeader 구조체 정의
+- [x] e_phoff 위치에서 읽기
+- [x] e_phnum개의 Program Header 파싱
+- [x] p_type, p_offset, p_vaddr, p_filesz, p_memsz 추출
 
-**검증**: Program Header 목록 출력 테스트
+**검증**: Program Header 목록 출력 테스트 ✅
 
 ---
 
