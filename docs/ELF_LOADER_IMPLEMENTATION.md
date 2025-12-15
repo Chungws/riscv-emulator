@@ -156,18 +156,18 @@ RISC-V 툴체인으로 빌드한 프로그램은 ELF 형식.
 
 ---
 
-### Step 2: ELF Header 파싱
+### Step 2: ELF Header 파싱 ✅
 
 **목표**: ELF 헤더 읽기 및 검증
 
-- [ ] ElfHeader 구조체 정의
-- [ ] 파일에서 64바이트 읽기
-- [ ] Magic number 검증
-- [ ] Class (64-bit) 검증
-- [ ] Machine (RISC-V) 검증
-- [ ] entry, phoff, phentsize, phnum 추출
+- [x] ElfHeader 구조체 정의
+- [x] 파일에서 64바이트 읽기
+- [x] Magic number 검증
+- [x] Class (64-bit) 검증
+- [x] Machine (RISC-V) 검증
+- [x] entry, phoff, phentsize, phnum 추출
 
-**검증**: 유효한 ELF 파일 헤더 파싱 테스트
+**검증**: 유효한 ELF 파일 헤더 파싱 테스트 ✅
 
 ---
 
