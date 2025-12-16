@@ -184,27 +184,27 @@ RISC-V 툴체인으로 빌드한 프로그램은 ELF 형식.
 
 ---
 
-### Step 4: 세그먼트 로딩
+### Step 4: 세그먼트 로딩 ✅
 
 **목표**: PT_LOAD 세그먼트를 메모리에 로드
 
-- [ ] PT_LOAD 세그먼트 필터링
-- [ ] 파일에서 데이터 읽기 (p_offset, p_filesz)
-- [ ] 메모리에 쓰기 (p_vaddr)
-- [ ] BSS 영역 0으로 초기화 (p_memsz - p_filesz)
+- [x] PT_LOAD 세그먼트 필터링
+- [x] 파일에서 데이터 읽기 (p_offset, p_filesz)
+- [x] 메모리에 쓰기 (p_vaddr)
+- [x] BSS 영역 0으로 초기화 (p_memsz - p_filesz)
 
-**검증**: 세그먼트 로드 후 메모리 확인
+**검증**: 세그먼트 로드 후 메모리 확인 ✅
 
 ---
 
-### Step 5: Entry Point 설정
+### Step 5: Entry Point 설정 ✅
 
 **목표**: PC를 entry point로 설정
 
-- [ ] e_entry 값을 PC에 설정
-- [ ] 또는 load_elf() 반환값으로 entry 전달
+- [x] e_entry 값을 PC에 설정
+- [x] 또는 load_elf() 반환값으로 entry 전달
 
-**검증**: 로드 후 PC 확인
+**검증**: 로드 후 PC 확인 ✅
 
 ---
 
