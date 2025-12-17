@@ -365,6 +365,10 @@ impl Cpu {
                 debug_log!("ADD rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
                 self.write_reg(rd, rs1_val.wrapping_add(rs2_val));
             }
+            (0x0, 0x01) => {
+                debug_log!("MUL rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
+                self.write_reg(rd, rs1_val.wrapping_mul(rs2_val));
+            }
             (0x0, 0x20) => {
                 debug_log!("SUB rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
                 self.write_reg(rd, rs1_val.wrapping_sub(rs2_val));

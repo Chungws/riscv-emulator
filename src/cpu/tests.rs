@@ -1869,3 +1869,70 @@ fn test_load_segments_bss() {
     assert_eq!(cpu.bus.read8(0x8000000A), 0x00);
     assert_eq!(cpu.bus.read8(0x8000000B), 0x00);
 }
+
+// === M Extension Tests ===
+
+#[test]
+fn test_mul_basic() {
+    // MUL x3, x1, x2: x3 = x1 * x2
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 7);
+    cpu.write_reg(2, 6);
+    cpu.bus.write32(0x80000000, 0x022081B3); // mul x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 42);
+}
+
+#[test]
+fn test_mul_by_zero() {
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 12345);
+    cpu.write_reg(2, 0);
+    cpu.bus.write32(0x80000000, 0x022081B3); // mul x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0);
+}
+
+#[test]
+fn test_mul_negative() {
+    // (-3) * 7 = -21
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, (-3_i64) as u64);
+    cpu.write_reg(2, 7);
+    cpu.bus.write32(0x80000000, 0x022081B3); // mul x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), (-21_i64) as u64);
+}
+
+#[test]
+fn test_mul_both_negative() {
+    // (-5) * (-4) = 20
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, (-5_i64) as u64);
+    cpu.write_reg(2, (-4_i64) as u64);
+    cpu.bus.write32(0x80000000, 0x022081B3); // mul x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 20);
+}
+
+#[test]
+fn test_mul_overflow() {
+    // 큰 수 곱셈 - 하위 64비트만 저장
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0x1_0000_0000); // 2^32
+    cpu.write_reg(2, 0x1_0000_0000); // 2^32
+    cpu.bus.write32(0x80000000, 0x022081B3); // mul x3, x1, x2
+    cpu.step();
+    // 2^64는 하위 64비트가 0
+    assert_eq!(cpu.read_reg(3), 0);
+}
+
+#[test]
+fn test_mul_large_values() {
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0xFFFFFFFF); // 2^32 - 1
+    cpu.write_reg(2, 2);
+    cpu.bus.write32(0x80000000, 0x022081B3); // mul x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0x1FFFFFFFE);
+}
