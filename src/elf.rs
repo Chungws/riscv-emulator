@@ -1,3 +1,5 @@
+use std::fmt;
+
 pub const ELF_MAGIC: [u8; 4] = [0x7F, b'E', b'L', b'F'];
 
 pub const EI_CLASS: usize = 4;
@@ -18,6 +20,20 @@ pub enum ElfError {
     InvalidEndian,
     ParseError,
 }
+
+impl fmt::Display for ElfError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ElfError::InvalidMagic => write!(f, "Invalid ELF magic"),
+            ElfError::InvalidClass => write!(f, "Invalid ELF class (not 64-bit)"),
+            ElfError::InvalidMachine => write!(f, "Invalid machine (not RISC-V)"),
+            ElfError::InvalidEndian => write!(f, "Invalid endian (not little-endian)"),
+            ElfError::ParseError => write!(f, "Failed to parse ELF"),
+        }
+    }
+}
+
+impl std::error::Error for ElfError {}
 
 pub struct ElfFile {
     pub entry: u64,

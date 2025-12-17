@@ -1,6 +1,6 @@
 use core::panic;
 
-use crate::{Bus, Csr, csr, debug_log, decoder, devices};
+use crate::{Bus, Csr, csr, debug_log, decoder, devices, elf};
 
 const OP_IMM: u32 = 0x13;
 const OP_IMM_32: u32 = 0x1B;
@@ -73,6 +73,18 @@ impl Cpu {
             let addr = devices::memory::DRAM_BASE + (i as u64) * 4;
             self.bus.write32(addr, inst);
         }
+    }
+
+    pub fn load_segments(&mut self, segments: &[elf::Segment], entry: u64) {
+        for segment in segments {
+            for (i, byte) in segment.data.iter().enumerate() {
+                self.bus.write8(segment.vaddr + i as u64, *byte);
+            }
+            for i in segment.data.len()..segment.memsz as usize {
+                self.bus.write8(segment.vaddr + i as u64, 0);
+            }
+        }
+        self.pc = entry;
     }
 
     pub fn trap(&mut self, cause: u64, tval: u64) {

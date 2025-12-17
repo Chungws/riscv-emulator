@@ -1772,3 +1772,100 @@ fn test_uart_interrupt_priority() {
         csr::INTERRUPT_BIT | csr::INTERRUPT_FROM_EXTERNAL
     );
 }
+
+#[test]
+fn test_load_segments() {
+    use crate::elf::Segment;
+
+    let mut cpu = Cpu::new();
+
+    let segments = vec![
+        Segment {
+            vaddr: 0x80000000,
+            data: vec![0x13, 0x00, 0x00, 0x00], // nop
+            memsz: 4,
+        },
+    ];
+
+    cpu.load_segments(&segments, 0x80000000);
+
+    assert_eq!(cpu.pc, 0x80000000);
+    assert_eq!(cpu.bus.read32(0x80000000), 0x00000013); // nop
+}
+
+#[test]
+fn test_load_segments_multiple() {
+    use crate::elf::Segment;
+
+    let mut cpu = Cpu::new();
+
+    let segments = vec![
+        Segment {
+            vaddr: 0x80000000,
+            data: vec![0x13, 0x00, 0x00, 0x00], // nop
+            memsz: 4,
+        },
+        Segment {
+            vaddr: 0x80001000,
+            data: vec![0x73, 0x00, 0x00, 0x00], // ecall
+            memsz: 4,
+        },
+    ];
+
+    cpu.load_segments(&segments, 0x80000000);
+
+    assert_eq!(cpu.bus.read32(0x80000000), 0x00000013);
+    assert_eq!(cpu.bus.read32(0x80001000), 0x00000073);
+}
+
+#[test]
+fn test_load_segments_entry_point() {
+    use crate::elf::Segment;
+
+    let mut cpu = Cpu::new();
+
+    let segments = vec![
+        Segment {
+            vaddr: 0x80000000,
+            data: vec![0x13, 0x00, 0x00, 0x00],
+            memsz: 4,
+        },
+    ];
+
+    // entry point가 segment 시작과 다를 수 있음
+    cpu.load_segments(&segments, 0x80000100);
+
+    assert_eq!(cpu.pc, 0x80000100);
+}
+
+#[test]
+fn test_load_segments_bss() {
+    use crate::elf::Segment;
+
+    let mut cpu = Cpu::new();
+
+    // BSS: filesz=4, memsz=12 (8바이트는 0으로 초기화)
+    let segments = vec![Segment {
+        vaddr: 0x80000000,
+        data: vec![0xAA, 0xBB, 0xCC, 0xDD], // 4바이트 데이터
+        memsz: 12,                          // 12바이트 메모리 (8바이트 BSS)
+    }];
+
+    cpu.load_segments(&segments, 0x80000000);
+
+    // 파일 데이터 확인
+    assert_eq!(cpu.bus.read8(0x80000000), 0xAA);
+    assert_eq!(cpu.bus.read8(0x80000001), 0xBB);
+    assert_eq!(cpu.bus.read8(0x80000002), 0xCC);
+    assert_eq!(cpu.bus.read8(0x80000003), 0xDD);
+
+    // BSS 영역 0 확인
+    assert_eq!(cpu.bus.read8(0x80000004), 0x00);
+    assert_eq!(cpu.bus.read8(0x80000005), 0x00);
+    assert_eq!(cpu.bus.read8(0x80000006), 0x00);
+    assert_eq!(cpu.bus.read8(0x80000007), 0x00);
+    assert_eq!(cpu.bus.read8(0x80000008), 0x00);
+    assert_eq!(cpu.bus.read8(0x80000009), 0x00);
+    assert_eq!(cpu.bus.read8(0x8000000A), 0x00);
+    assert_eq!(cpu.bus.read8(0x8000000B), 0x00);
+}
