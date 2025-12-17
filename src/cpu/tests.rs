@@ -1936,3 +1936,138 @@ fn test_mul_large_values() {
     cpu.step();
     assert_eq!(cpu.read_reg(3), 0x1FFFFFFFE);
 }
+
+// === MULH Tests (signed × signed, upper 64 bits) ===
+
+#[test]
+fn test_mulh_small_numbers() {
+    // 작은 수 곱셈: 상위 64비트는 0
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 100);
+    cpu.write_reg(2, 200);
+    cpu.bus.write32(0x80000000, 0x022091B3); // mulh x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0);
+}
+
+#[test]
+fn test_mulh_large_positive() {
+    // 2^63 * 2 = 2^64, 상위 64비트 = 1
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0x8000_0000_0000_0000); // -2^63 as signed, but treated as large positive for bit pattern
+    cpu.write_reg(2, 2);
+    cpu.bus.write32(0x80000000, 0x022091B3); // mulh x3, x1, x2
+    cpu.step();
+    // -2^63 * 2 (signed) = -2^64, upper 64 bits = -1 (0xFFFFFFFFFFFFFFFF)
+    assert_eq!(cpu.read_reg(3), 0xFFFF_FFFF_FFFF_FFFF);
+}
+
+#[test]
+fn test_mulh_negative_times_positive() {
+    // -1 * 0x7FFFFFFFFFFFFFFF (large positive)
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0xFFFF_FFFF_FFFF_FFFF); // -1
+    cpu.write_reg(2, 0x7FFF_FFFF_FFFF_FFFF); // max positive
+    cpu.bus.write32(0x80000000, 0x022091B3); // mulh x3, x1, x2
+    cpu.step();
+    // -1 * (2^63-1) = -(2^63-1), upper bits = -1
+    assert_eq!(cpu.read_reg(3), 0xFFFF_FFFF_FFFF_FFFF);
+}
+
+#[test]
+fn test_mulh_both_negative() {
+    // -2 * -3 = 6, small result, upper bits = 0
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, (-2_i64) as u64);
+    cpu.write_reg(2, (-3_i64) as u64);
+    cpu.bus.write32(0x80000000, 0x022091B3); // mulh x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0);
+}
+
+// === MULHU Tests (unsigned × unsigned, upper 64 bits) ===
+
+#[test]
+fn test_mulhu_small_numbers() {
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 100);
+    cpu.write_reg(2, 200);
+    cpu.bus.write32(0x80000000, 0x0220B1B3); // mulhu x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0);
+}
+
+#[test]
+fn test_mulhu_large_values() {
+    // 0x8000_0000_0000_0000 * 2 = 0x1_0000_0000_0000_0000
+    // upper 64 bits = 1
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0x8000_0000_0000_0000);
+    cpu.write_reg(2, 2);
+    cpu.bus.write32(0x80000000, 0x0220B1B3); // mulhu x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 1);
+}
+
+#[test]
+fn test_mulhu_max_values() {
+    // (2^64-1) * (2^64-1) = 2^128 - 2^65 + 1
+    // upper 64 bits = 2^64 - 2 = 0xFFFFFFFFFFFFFFFE
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0xFFFF_FFFF_FFFF_FFFF);
+    cpu.write_reg(2, 0xFFFF_FFFF_FFFF_FFFF);
+    cpu.bus.write32(0x80000000, 0x0220B1B3); // mulhu x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0xFFFF_FFFF_FFFF_FFFE);
+}
+
+// === MULHSU Tests (signed × unsigned, upper 64 bits) ===
+
+#[test]
+fn test_mulhsu_positive_times_positive() {
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 100); // signed positive
+    cpu.write_reg(2, 200); // unsigned
+    cpu.bus.write32(0x80000000, 0x0220A1B3); // mulhsu x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0);
+}
+
+#[test]
+fn test_mulhsu_negative_times_positive() {
+    // -1 (signed) * 1 (unsigned) = -1
+    // 128-bit: 0xFFFFFFFFFFFFFFFF_FFFFFFFFFFFFFFFF
+    // upper 64 bits = 0xFFFFFFFFFFFFFFFF
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0xFFFF_FFFF_FFFF_FFFF); // -1 as signed
+    cpu.write_reg(2, 1);
+    cpu.bus.write32(0x80000000, 0x0220A1B3); // mulhsu x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0xFFFF_FFFF_FFFF_FFFF);
+}
+
+#[test]
+fn test_mulhsu_negative_times_large() {
+    // -1 (signed) * 0x8000_0000_0000_0000 (unsigned)
+    // = -0x8000_0000_0000_0000 (as 128-bit signed)
+    // upper 64 bits = 0xFFFF_FFFF_FFFF_FFFF
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0xFFFF_FFFF_FFFF_FFFF); // -1
+    cpu.write_reg(2, 0x8000_0000_0000_0000);
+    cpu.bus.write32(0x80000000, 0x0220A1B3); // mulhsu x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0xFFFF_FFFF_FFFF_FFFF);
+}
+
+#[test]
+fn test_mulhsu_min_signed_times_two() {
+    // -2^63 (signed) * 2 (unsigned) = -2^64
+    // 128-bit: 0xFFFFFFFFFFFFFFFF_0000000000000000
+    // upper 64 bits = 0xFFFFFFFFFFFFFFFF
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0x8000_0000_0000_0000); // -2^63
+    cpu.write_reg(2, 2);
+    cpu.bus.write32(0x80000000, 0x0220A1B3); // mulhsu x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0xFFFF_FFFF_FFFF_FFFF);
+}

@@ -378,6 +378,11 @@ impl Cpu {
                 debug_log!("SLL rd={}, rs1_val={}, shamt={}", rd, rs1_val, shamt);
                 self.write_reg(rd, rs1_val << shamt);
             }
+            (0x1, 0x01) => {
+                debug_log!("MULH rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
+                let res = (rs1_val as i64 as i128) * (rs2_val as i64 as i128);
+                self.write_reg(rd, (res >> 64) as i64 as u64);
+            }
             (0x2, 0x0) => {
                 debug_log!("SLT rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
                 let result = if (rs1_val as i64) < (rs2_val as i64) {
@@ -387,10 +392,20 @@ impl Cpu {
                 };
                 self.write_reg(rd, result);
             }
+            (0x2, 0x01) => {
+                debug_log!("MULHSU rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
+                let res = (rs1_val as i64 as i128) * (rs2_val as u128 as i128);
+                self.write_reg(rd, (res >> 64) as i64 as u64);
+            }
             (0x3, 0x0) => {
                 debug_log!("SLTU rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
                 let result = if rs1_val < rs2_val { 1 } else { 0 };
                 self.write_reg(rd, result);
+            }
+            (0x3, 0x01) => {
+                debug_log!("MULHU rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
+                let res = (rs1_val as u128) * (rs2_val as u128);
+                self.write_reg(rd, (res >> 64) as u64);
             }
             (0x4, 0x0) => {
                 debug_log!("XOR rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);

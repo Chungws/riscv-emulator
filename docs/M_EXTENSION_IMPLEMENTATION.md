@@ -95,17 +95,17 @@ opcode: `0x3B` (OP-32)
 
 ---
 
-### Step 2: MULH, MULHSU, MULHU 구현
+### Step 2: MULH, MULHSU, MULHU 구현 ✅
 
 **목표**: 상위 64비트 곱셈 구현
 
-- [ ] MULH (funct3=0x1): signed × signed
-- [ ] MULHSU (funct3=0x2): signed × unsigned
-- [ ] MULHU (funct3=0x3): unsigned × unsigned
+- [x] MULH (funct3=0x1): signed × signed
+- [x] MULHSU (funct3=0x2): signed × unsigned
+- [x] MULHU (funct3=0x3): unsigned × unsigned
 
 **힌트**: 128비트 곱셈 필요 (i128 또는 u128 사용)
 
-**검증**: MULH, MULHSU, MULHU 테스트
+**검증**: MULH, MULHSU, MULHU 테스트 (11개 통과)
 
 ---
 
