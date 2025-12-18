@@ -411,10 +411,28 @@ impl Cpu {
                 debug_log!("XOR rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
                 self.write_reg(rd, rs1_val ^ rs2_val);
             }
+            (0x4, 0x01) => {
+                debug_log!("DIV rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
+                if rs2_val == 0 {
+                    self.write_reg(rd, -1 as i64 as u64);
+                } else {
+                    let res = (rs1_val as i64).wrapping_div(rs2_val as i64);
+                    self.write_reg(rd, res as u64);
+                }
+            }
             (0x5, 0x0) => {
                 let shamt = rs2_val & 0x3F;
                 debug_log!("SRL rd={}, rs1_val={}, shamt={}", rd, rs1_val, shamt);
                 self.write_reg(rd, rs1_val >> shamt);
+            }
+            (0x5, 0x01) => {
+                debug_log!("DIVU rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
+                if rs2_val == 0 {
+                    self.write_reg(rd, u64::MAX);
+                } else {
+                    let res = rs1_val.wrapping_div(rs2_val);
+                    self.write_reg(rd, res);
+                }
             }
             (0x5, 0x20) => {
                 let shamt = rs2_val & 0x3F;

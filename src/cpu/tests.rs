@@ -2071,3 +2071,118 @@ fn test_mulhsu_min_signed_times_two() {
     cpu.step();
     assert_eq!(cpu.read_reg(3), 0xFFFF_FFFF_FFFF_FFFF);
 }
+
+// === DIV Tests (signed division) ===
+
+#[test]
+fn test_div_basic() {
+    // 20 / 3 = 6
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 20);
+    cpu.write_reg(2, 3);
+    cpu.bus.write32(0x80000000, 0x0220C1B3); // div x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 6);
+}
+
+#[test]
+fn test_div_negative_dividend() {
+    // -20 / 3 = -6
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, (-20_i64) as u64);
+    cpu.write_reg(2, 3);
+    cpu.bus.write32(0x80000000, 0x0220C1B3); // div x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), (-6_i64) as u64);
+}
+
+#[test]
+fn test_div_negative_divisor() {
+    // 20 / -3 = -6
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 20);
+    cpu.write_reg(2, (-3_i64) as u64);
+    cpu.bus.write32(0x80000000, 0x0220C1B3); // div x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), (-6_i64) as u64);
+}
+
+#[test]
+fn test_div_both_negative() {
+    // -20 / -3 = 6
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, (-20_i64) as u64);
+    cpu.write_reg(2, (-3_i64) as u64);
+    cpu.bus.write32(0x80000000, 0x0220C1B3); // div x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 6);
+}
+
+#[test]
+fn test_div_by_zero() {
+    // x / 0 = -1 (all bits set)
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 42);
+    cpu.write_reg(2, 0);
+    cpu.bus.write32(0x80000000, 0x0220C1B3); // div x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0xFFFF_FFFF_FFFF_FFFF); // -1
+}
+
+#[test]
+fn test_div_overflow() {
+    // -2^63 / -1 = -2^63 (overflow case)
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0x8000_0000_0000_0000); // i64::MIN
+    cpu.write_reg(2, (-1_i64) as u64);
+    cpu.bus.write32(0x80000000, 0x0220C1B3); // div x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0x8000_0000_0000_0000); // i64::MIN
+}
+
+// === DIVU Tests (unsigned division) ===
+
+#[test]
+fn test_divu_basic() {
+    // 20 / 3 = 6
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 20);
+    cpu.write_reg(2, 3);
+    cpu.bus.write32(0x80000000, 0x0220D1B3); // divu x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 6);
+}
+
+#[test]
+fn test_divu_large_values() {
+    // 0xFFFFFFFFFFFFFFFF / 2 = 0x7FFFFFFFFFFFFFFF
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0xFFFF_FFFF_FFFF_FFFF);
+    cpu.write_reg(2, 2);
+    cpu.bus.write32(0x80000000, 0x0220D1B3); // divu x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0x7FFF_FFFF_FFFF_FFFF);
+}
+
+#[test]
+fn test_divu_by_zero() {
+    // x / 0 = 0xFFFFFFFFFFFFFFFF (all bits set)
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 42);
+    cpu.write_reg(2, 0);
+    cpu.bus.write32(0x80000000, 0x0220D1B3); // divu x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0xFFFF_FFFF_FFFF_FFFF);
+}
+
+#[test]
+fn test_divu_treats_as_unsigned() {
+    // 0x8000000000000000 is large positive in unsigned
+    // 0x8000000000000000 / 0x100000000 = 0x80000000
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0x8000_0000_0000_0000);
+    cpu.write_reg(2, 0x1_0000_0000);
+    cpu.bus.write32(0x80000000, 0x0220D1B3); // divu x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0x8000_0000);
+}

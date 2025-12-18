@@ -109,16 +109,16 @@ opcode: `0x3B` (OP-32)
 
 ---
 
-### Step 3: DIV, DIVU 구현
+### Step 3: DIV, DIVU 구현 ✅
 
 **목표**: 나눗셈 구현
 
-- [ ] DIV (funct3=0x4): signed 나눗셈
-- [ ] DIVU (funct3=0x5): unsigned 나눗셈
-- [ ] 0으로 나누기 처리
-- [ ] 오버플로우 처리 (DIV만)
+- [x] DIV (funct3=0x4): signed 나눗셈
+- [x] DIVU (funct3=0x5): unsigned 나눗셈
+- [x] 0으로 나누기 처리
+- [x] 오버플로우 처리 (DIV만)
 
-**검증**: DIV, DIVU 테스트 (0으로 나누기 포함)
+**검증**: DIV, DIVU 테스트 (10개 통과)
 
 ---
 
