@@ -149,14 +149,14 @@ opcode: `0x3B` (OP-32)
 
 ---
 
-### Step 6: xv6 테스트
+### Step 6: xv6 테스트 ✅
 
 **목표**: xv6 커널로 통합 테스트
 
-- [ ] xv6 커널 실행
-- [ ] 다음 에러 확인 및 대응
+- [x] xv6 커널 실행
+- [x] 다음 에러 확인: A Extension 필요 (opcode 0x2F)
 
-**검증**: xv6가 더 진행되는지 확인
+**검증**: M Extension 통과, A Extension으로 진행
 
 ---
 
