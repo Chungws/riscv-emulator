@@ -122,16 +122,16 @@ opcode: `0x3B` (OP-32)
 
 ---
 
-### Step 4: REM, REMU 구현
+### Step 4: REM, REMU 구현 ✅
 
 **목표**: 나머지 연산 구현
 
-- [ ] REM (funct3=0x6): signed 나머지
-- [ ] REMU (funct3=0x7): unsigned 나머지
-- [ ] 0으로 나누기 처리
-- [ ] 오버플로우 처리 (REM만)
+- [x] REM (funct3=0x6): signed 나머지
+- [x] REMU (funct3=0x7): unsigned 나머지
+- [x] 0으로 나누기 처리
+- [x] 오버플로우 처리 (REM만)
 
-**검증**: REM, REMU 테스트
+**검증**: REM, REMU 테스트 (10개 통과)
 
 ---
 

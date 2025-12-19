@@ -443,9 +443,27 @@ impl Cpu {
                 debug_log!("OR rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
                 self.write_reg(rd, rs1_val | rs2_val);
             }
+            (0x6, 0x01) => {
+                debug_log!("REM rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
+                if rs2_val == 0 {
+                    self.write_reg(rd, rs1_val as i64 as u64);
+                } else {
+                    let res = (rs1_val as i64).wrapping_rem(rs2_val as i64);
+                    self.write_reg(rd, res as u64);
+                }
+            }
             (0x7, 0x0) => {
                 debug_log!("AND rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
                 self.write_reg(rd, rs1_val & rs2_val);
+            }
+            (0x7, 0x01) => {
+                debug_log!("REMU rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
+                if rs2_val == 0 {
+                    self.write_reg(rd, rs1_val);
+                } else {
+                    let res = rs1_val.wrapping_rem(rs2_val);
+                    self.write_reg(rd, res);
+                }
             }
             _ => panic!(
                 "Not Implemented OP funct3={:#x}, funct7={:#x}",

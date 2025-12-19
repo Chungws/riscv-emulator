@@ -2186,3 +2186,121 @@ fn test_divu_treats_as_unsigned() {
     cpu.step();
     assert_eq!(cpu.read_reg(3), 0x8000_0000);
 }
+
+// === REM Tests (signed remainder) ===
+
+#[test]
+fn test_rem_basic() {
+    // 20 % 3 = 2
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 20);
+    cpu.write_reg(2, 3);
+    cpu.bus.write32(0x80000000, 0x0220E1B3); // rem x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 2);
+}
+
+#[test]
+fn test_rem_negative_dividend() {
+    // -20 % 3 = -2
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, (-20_i64) as u64);
+    cpu.write_reg(2, 3);
+    cpu.bus.write32(0x80000000, 0x0220E1B3); // rem x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), (-2_i64) as u64);
+}
+
+#[test]
+fn test_rem_negative_divisor() {
+    // 20 % -3 = 2
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 20);
+    cpu.write_reg(2, (-3_i64) as u64);
+    cpu.bus.write32(0x80000000, 0x0220E1B3); // rem x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 2);
+}
+
+#[test]
+fn test_rem_both_negative() {
+    // -20 % -3 = -2
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, (-20_i64) as u64);
+    cpu.write_reg(2, (-3_i64) as u64);
+    cpu.bus.write32(0x80000000, 0x0220E1B3); // rem x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), (-2_i64) as u64);
+}
+
+#[test]
+fn test_rem_by_zero() {
+    // x % 0 = x (dividend)
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 42);
+    cpu.write_reg(2, 0);
+    cpu.bus.write32(0x80000000, 0x0220E1B3); // rem x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 42);
+}
+
+#[test]
+fn test_rem_overflow() {
+    // -2^63 % -1 = 0 (overflow case)
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0x8000_0000_0000_0000); // i64::MIN
+    cpu.write_reg(2, (-1_i64) as u64);
+    cpu.bus.write32(0x80000000, 0x0220E1B3); // rem x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0);
+}
+
+// === REMU Tests (unsigned remainder) ===
+
+#[test]
+fn test_remu_basic() {
+    // 20 % 3 = 2
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 20);
+    cpu.write_reg(2, 3);
+    cpu.bus.write32(0x80000000, 0x0220F1B3); // remu x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 2);
+}
+
+#[test]
+fn test_remu_large_values() {
+    // 0xFFFFFFFFFFFFFFFF % 7 = ?
+    // 0xFFFFFFFFFFFFFFFF = 18446744073709551615
+    // 18446744073709551615 % 7 = 1
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0xFFFF_FFFF_FFFF_FFFF);
+    cpu.write_reg(2, 7);
+    cpu.bus.write32(0x80000000, 0x0220F1B3); // remu x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 1);
+}
+
+#[test]
+fn test_remu_by_zero() {
+    // x % 0 = x (dividend)
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 42);
+    cpu.write_reg(2, 0);
+    cpu.bus.write32(0x80000000, 0x0220F1B3); // remu x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 42);
+}
+
+#[test]
+fn test_remu_treats_as_unsigned() {
+    // 0x8000000000000000 % 3 (treated as large positive)
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0x8000_0000_0000_0000);
+    cpu.write_reg(2, 3);
+    cpu.bus.write32(0x80000000, 0x0220F1B3); // remu x3, x1, x2
+    cpu.step();
+    // 0x8000000000000000 = 9223372036854775808
+    // 9223372036854775808 % 3 = 2
+    assert_eq!(cpu.read_reg(3), 2);
+}
