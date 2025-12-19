@@ -488,6 +488,11 @@ impl Cpu {
                 let result = (rs1_val as i32).wrapping_add(rs2_val as i32);
                 self.write_reg(rd, result as i64 as u64);
             }
+            (0x0, 0x01) => {
+                debug_log!("MULW rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
+                let result = (rs1_val as i32).wrapping_mul(rs2_val as i32);
+                self.write_reg(rd, result as i64 as u64);
+            }
             (0x0, 0x20) => {
                 debug_log!("SUBW rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
                 let result = (rs1_val as i32).wrapping_sub(rs2_val as i32);
@@ -498,15 +503,51 @@ impl Cpu {
                 debug_log!("SLLW rd={}, rs1_val={}, shamt={}", rd, rs1_val, shamt);
                 self.write_reg(rd, ((rs1_val as u32) << shamt) as i32 as i64 as u64);
             }
+            (0x4, 0x01) => {
+                debug_log!("DIVW rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
+                if rs2_val == 0 {
+                    self.write_reg(rd, -1 as i32 as i64 as u64);
+                } else {
+                    let res = (rs1_val as u32 as i32).wrapping_div(rs2_val as u32 as i32);
+                    self.write_reg(rd, res as u64);
+                }
+            }
             (0x5, 0x0) => {
                 let shamt = rs2_val & 0x3F;
                 debug_log!("SRLW rd={}, rs1_val={}, shamt={}", rd, rs1_val, shamt);
                 self.write_reg(rd, ((rs1_val as u32) >> shamt) as u64);
             }
+            (0x5, 0x01) => {
+                debug_log!("DIVUW rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
+                if rs2_val == 0 {
+                    self.write_reg(rd, -1 as i32 as u64);
+                } else {
+                    let res = (rs1_val as u32).wrapping_div(rs2_val as u32) as i32 as i64;
+                    self.write_reg(rd, res as u64);
+                }
+            }
             (0x5, 0x20) => {
                 let shamt = rs2_val & 0x3F;
                 debug_log!("SRAW rd={}, rs1_val={}, shamt={}", rd, rs1_val, shamt);
                 self.write_reg(rd, ((rs1_val as i32) >> shamt) as i64 as u64);
+            }
+            (0x6, 0x01) => {
+                debug_log!("REMW rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
+                if rs2_val == 0 {
+                    self.write_reg(rd, rs1_val as u32 as i32 as i64 as u64);
+                } else {
+                    let res = (rs1_val as i32).wrapping_rem(rs2_val as i32);
+                    self.write_reg(rd, res as i64 as u64);
+                }
+            }
+            (0x7, 0x01) => {
+                debug_log!("REMUW rd={}, rs1_val={}, rs2_val={}", rd, rs1_val, rs2_val);
+                if rs2_val == 0 {
+                    self.write_reg(rd, rs1_val as u32 as i32 as i64 as u64);
+                } else {
+                    let res = (rs1_val as u32).wrapping_rem(rs2_val as u32) as i32 as i64;
+                    self.write_reg(rd, res as u64);
+                }
             }
             _ => panic!(
                 "Not Implemented OP_32 funct3={:#x}, funct7={:#x}",

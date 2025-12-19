@@ -135,17 +135,17 @@ opcode: `0x3B` (OP-32)
 
 ---
 
-### Step 5: 32비트 연산 (W suffix)
+### Step 5: 32비트 연산 (W suffix) ✅
 
 **목표**: OP-32 (0x3B)에 M extension 추가
 
-- [ ] MULW (funct3=0x0)
-- [ ] DIVW (funct3=0x4)
-- [ ] DIVUW (funct3=0x5)
-- [ ] REMW (funct3=0x6)
-- [ ] REMUW (funct3=0x7)
+- [x] MULW (funct3=0x0)
+- [x] DIVW (funct3=0x4)
+- [x] DIVUW (funct3=0x5)
+- [x] REMW (funct3=0x6)
+- [x] REMUW (funct3=0x7)
 
-**검증**: 32비트 연산 테스트
+**검증**: 32비트 연산 테스트 (21개 통과, sign-extend 엣지케이스 포함)
 
 ---
 

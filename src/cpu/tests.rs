@@ -2304,3 +2304,249 @@ fn test_remu_treats_as_unsigned() {
     // 9223372036854775808 % 3 = 2
     assert_eq!(cpu.read_reg(3), 2);
 }
+
+// === MULW Tests (32-bit multiply, sign-extended) ===
+
+#[test]
+fn test_mulw_basic() {
+    // 7 * 6 = 42
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 7);
+    cpu.write_reg(2, 6);
+    cpu.bus.write32(0x80000000, 0x022081BB); // mulw x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 42);
+}
+
+#[test]
+fn test_mulw_sign_extend() {
+    // 0x40000000 * 2 = 0x80000000 (negative in 32-bit)
+    // sign-extended to 0xFFFFFFFF80000000
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0x4000_0000);
+    cpu.write_reg(2, 2);
+    cpu.bus.write32(0x80000000, 0x022081BB); // mulw x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0xFFFF_FFFF_8000_0000);
+}
+
+#[test]
+fn test_mulw_ignores_upper_bits() {
+    // upper 32 bits of rs1/rs2 are ignored
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0xFFFF_FFFF_0000_0007); // lower 32 = 7
+    cpu.write_reg(2, 0xFFFF_FFFF_0000_0006); // lower 32 = 6
+    cpu.bus.write32(0x80000000, 0x022081BB); // mulw x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 42);
+}
+
+// === DIVW Tests (32-bit signed divide) ===
+
+#[test]
+fn test_divw_basic() {
+    // 20 / 3 = 6
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 20);
+    cpu.write_reg(2, 3);
+    cpu.bus.write32(0x80000000, 0x0220C1BB); // divw x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 6);
+}
+
+#[test]
+fn test_divw_negative() {
+    // -20 / 3 = -6 (32-bit)
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, (-20_i32) as u32 as u64);
+    cpu.write_reg(2, 3);
+    cpu.bus.write32(0x80000000, 0x0220C1BB); // divw x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), (-6_i64) as u64);
+}
+
+#[test]
+fn test_divw_by_zero() {
+    // x / 0 = -1
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 42);
+    cpu.write_reg(2, 0);
+    cpu.bus.write32(0x80000000, 0x0220C1BB); // divw x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0xFFFF_FFFF_FFFF_FFFF); // -1 sign-extended
+}
+
+#[test]
+fn test_divw_overflow() {
+    // -2^31 / -1 = -2^31 (overflow)
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0x8000_0000); // i32::MIN
+    cpu.write_reg(2, (-1_i32) as u32 as u64);
+    cpu.bus.write32(0x80000000, 0x0220C1BB); // divw x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0xFFFF_FFFF_8000_0000); // i32::MIN sign-extended
+}
+
+// === DIVUW Tests (32-bit unsigned divide) ===
+
+#[test]
+fn test_divuw_basic() {
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 20);
+    cpu.write_reg(2, 3);
+    cpu.bus.write32(0x80000000, 0x0220D1BB); // divuw x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 6);
+}
+
+#[test]
+fn test_divuw_large() {
+    // 0x80000000 / 2 = 0x40000000 (unsigned)
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0x8000_0000);
+    cpu.write_reg(2, 2);
+    cpu.bus.write32(0x80000000, 0x0220D1BB); // divuw x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0x4000_0000);
+}
+
+#[test]
+fn test_divuw_by_zero() {
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 42);
+    cpu.write_reg(2, 0);
+    cpu.bus.write32(0x80000000, 0x0220D1BB); // divuw x3, x1, x2
+    cpu.step();
+    // 0xFFFFFFFF sign-extended
+    assert_eq!(cpu.read_reg(3), 0xFFFF_FFFF_FFFF_FFFF);
+}
+
+// === REMW Tests (32-bit signed remainder) ===
+
+#[test]
+fn test_remw_basic() {
+    // 20 % 3 = 2
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 20);
+    cpu.write_reg(2, 3);
+    cpu.bus.write32(0x80000000, 0x0220E1BB); // remw x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 2);
+}
+
+#[test]
+fn test_remw_negative() {
+    // -20 % 3 = -2
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, (-20_i32) as u32 as u64);
+    cpu.write_reg(2, 3);
+    cpu.bus.write32(0x80000000, 0x0220E1BB); // remw x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), (-2_i64) as u64);
+}
+
+#[test]
+fn test_remw_by_zero() {
+    // x % 0 = x
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 42);
+    cpu.write_reg(2, 0);
+    cpu.bus.write32(0x80000000, 0x0220E1BB); // remw x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 42);
+}
+
+#[test]
+fn test_remw_overflow() {
+    // -2^31 % -1 = 0
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0x8000_0000); // i32::MIN
+    cpu.write_reg(2, (-1_i32) as u32 as u64);
+    cpu.bus.write32(0x80000000, 0x0220E1BB); // remw x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0);
+}
+
+// === REMUW Tests (32-bit unsigned remainder) ===
+
+#[test]
+fn test_remuw_basic() {
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 20);
+    cpu.write_reg(2, 3);
+    cpu.bus.write32(0x80000000, 0x0220F1BB); // remuw x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 2);
+}
+
+#[test]
+fn test_remuw_large() {
+    // 0x80000000 % 3 = 2
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0x8000_0000);
+    cpu.write_reg(2, 3);
+    cpu.bus.write32(0x80000000, 0x0220F1BB); // remuw x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 2);
+}
+
+#[test]
+fn test_remuw_by_zero() {
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 42);
+    cpu.write_reg(2, 0);
+    cpu.bus.write32(0x80000000, 0x0220F1BB); // remuw x3, x1, x2
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 42);
+}
+
+// === Sign Extension Edge Cases (bit 31 set) ===
+
+#[test]
+fn test_divuw_sign_extend() {
+    // 0xC0000000 / 2 = 0x60000000 (bit 31 = 0, no issue)
+    // 0x80000000 / 1 = 0x80000000 (bit 31 = 1, needs sign-extend)
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0x8000_0000);
+    cpu.write_reg(2, 1);
+    cpu.bus.write32(0x80000000, 0x0220D1BB); // divuw x3, x1, x2
+    cpu.step();
+    // 0x80000000 should be sign-extended to 0xFFFFFFFF80000000
+    assert_eq!(cpu.read_reg(3), 0xFFFF_FFFF_8000_0000);
+}
+
+#[test]
+fn test_remuw_sign_extend() {
+    // 0x80000001 % 0xFFFFFFFF = 0x80000001 (bit 31 = 1)
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0x8000_0001);
+    cpu.write_reg(2, 0xFFFF_FFFF);
+    cpu.bus.write32(0x80000000, 0x0220F1BB); // remuw x3, x1, x2
+    cpu.step();
+    // 0x80000001 should be sign-extended to 0xFFFFFFFF80000001
+    assert_eq!(cpu.read_reg(3), 0xFFFF_FFFF_8000_0001);
+}
+
+#[test]
+fn test_remw_by_zero_sign_extend() {
+    // x % 0 = x, with x having bit 31 set
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0x8000_0000); // -2^31 in 32-bit
+    cpu.write_reg(2, 0);
+    cpu.bus.write32(0x80000000, 0x0220E1BB); // remw x3, x1, x2
+    cpu.step();
+    // Should be sign-extended
+    assert_eq!(cpu.read_reg(3), 0xFFFF_FFFF_8000_0000);
+}
+
+#[test]
+fn test_remuw_by_zero_sign_extend() {
+    // x % 0 = x, with x having bit 31 set
+    let mut cpu = Cpu::new();
+    cpu.write_reg(1, 0x8000_0000);
+    cpu.write_reg(2, 0);
+    cpu.bus.write32(0x80000000, 0x0220F1BB); // remuw x3, x1, x2
+    cpu.step();
+    // Should be sign-extended
+    assert_eq!(cpu.read_reg(3), 0xFFFF_FFFF_8000_0000);
+}
