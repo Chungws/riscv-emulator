@@ -164,23 +164,23 @@ Hart 0: SC.W a1, a0, (0x1000) # 예약 없음 → 실패 (a1 = 1)
 
 ## 5. 구현 단계
 
-### Step 0: 아키텍처 준비
+### Step 0: 아키텍처 준비 ✅
 
 **목표**: 멀티코어 확장 가능한 예약 시스템 구축
 
-- [ ] CPU에 `hart_id: u64` 추가
-- [ ] Bus에 예약 테이블 추가
+- [x] CPU에 `hart_id: u64` 추가
+- [x] Bus에 예약 테이블 추가
   ```
   reservations: HashMap<u64, u64>  // hart_id -> reserved_addr
   ```
-- [ ] Bus에 예약 API 추가
+- [x] Bus에 예약 API 추가
   - `reserve(hart_id, addr)`: 예약 등록
   - `check_reservation(hart_id, addr) -> bool`: 예약 확인
   - `clear_reservation(hart_id)`: 예약 클리어
   - `invalidate_reservations(addr)`: 해당 주소 예약 무효화
-- [ ] 메모리 쓰기 시 `invalidate_reservations(addr)` 호출
+- [x] 메모리 쓰기 시 `invalidate_reservations(addr)` 호출
 
-**검증**: 기존 테스트 통과 확인
+**검증**: 기존 테스트 통과 확인 ✅
 
 ---
 
