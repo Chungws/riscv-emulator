@@ -29,10 +29,11 @@ pub struct Cpu {
     pub mode: PrivilegeMode,
     pub bus: bus::Bus,
     pub halted: bool,
+    pub hart_id: u64,
 }
 
 impl Cpu {
-    pub fn new() -> Self {
+    pub fn new(hart_id: u64) -> Self {
         let mut csr = csr::Csr::new();
         // misa: RV64I + S + U 지원
         // 비트 63-62: MXL=2 (64비트)
@@ -42,7 +43,7 @@ impl Cpu {
         csr.write(csr::MISA, 0x8000000000140100);
 
         // mhartid: single core = 0
-        csr.write(csr::MHARTID, 0);
+        csr.write(csr::MHARTID, hart_id);
 
         Self {
             regs: [0; 32],
@@ -51,6 +52,7 @@ impl Cpu {
             mode: PrivilegeMode::Machine,
             bus: bus::Bus::new(),
             halted: false,
+            hart_id: hart_id,
         }
     }
 

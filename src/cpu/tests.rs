@@ -3,7 +3,7 @@ use crate::csr;
 
 #[test]
 fn test_cpu_init() {
-    let cpu = Cpu::new();
+    let cpu = Cpu::new(0);
     for i in 0..32 {
         assert_eq!(cpu.regs[i], 0);
     }
@@ -12,7 +12,7 @@ fn test_cpu_init() {
 
 #[test]
 fn test_misa_init() {
-    let cpu = Cpu::new();
+    let cpu = Cpu::new(0);
     let misa = cpu.csr.read(csr::MISA);
 
     // MXL = 2 (64-bit)
@@ -30,20 +30,20 @@ fn test_misa_init() {
 
 #[test]
 fn test_mhartid_init() {
-    let cpu = Cpu::new();
+    let cpu = Cpu::new(0);
     assert_eq!(cpu.csr.read(csr::MHARTID), 0); // single core
 }
 
 #[test]
 fn test_x0_always_zero() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(0, 100);
     assert_eq!(cpu.read_reg(0), 0);
 }
 
 #[test]
 fn test_fetch() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.bus.write32(0x80000000, 0x02A00093);
     let instruction = cpu.fetch();
     assert_eq!(instruction, 0x02A00093);
@@ -51,7 +51,7 @@ fn test_fetch() {
 
 #[test]
 fn test_addi() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.bus.write32(0x80000000, 0x02A00093);
     cpu.step();
     assert_eq!(cpu.read_reg(1), 42);
@@ -60,7 +60,7 @@ fn test_addi() {
 
 #[test]
 fn test_addi_negative() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.bus.write32(0x80000000, 0xFFF00093);
     cpu.step();
     assert_eq!(cpu.read_reg(1), 0xFFFFFFFFFFFFFFFF);
@@ -68,7 +68,7 @@ fn test_addi_negative() {
 
 #[test]
 fn test_add() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 10);
     cpu.write_reg(2, 20);
     cpu.bus.write32(0x80000000, 0x002081B3);
@@ -78,7 +78,7 @@ fn test_add() {
 
 #[test]
 fn test_sub() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 100);
     cpu.write_reg(2, 30);
     cpu.bus.write32(0x80000000, 0x402081B3);
@@ -88,7 +88,7 @@ fn test_sub() {
 
 #[test]
 fn test_and() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0b1100);
     cpu.write_reg(2, 0b1010);
     cpu.bus.write32(0x80000000, 0x0020F1B3);
@@ -98,7 +98,7 @@ fn test_and() {
 
 #[test]
 fn test_or() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0b1100);
     cpu.write_reg(2, 0b1010);
     cpu.bus.write32(0x80000000, 0x0020E1B3);
@@ -108,7 +108,7 @@ fn test_or() {
 
 #[test]
 fn test_or_with_zero() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x12345678);
     cpu.write_reg(2, 0);
     cpu.bus.write32(0x80000000, 0x0020E1B3);
@@ -118,7 +118,7 @@ fn test_or_with_zero() {
 
 #[test]
 fn test_xor() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0b1100);
     cpu.write_reg(2, 0b1010);
     cpu.bus.write32(0x80000000, 0x0020C1B3);
@@ -128,7 +128,7 @@ fn test_xor() {
 
 #[test]
 fn test_andi() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0xFF);
     cpu.bus.write32(0x80000000, 0x00F0F113);
     cpu.step();
@@ -137,7 +137,7 @@ fn test_andi() {
 
 #[test]
 fn test_andi_sign_extended() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0xFFFFFFFF);
     cpu.bus.write32(0x80000000, 0xFFF0F113);
     cpu.step();
@@ -146,7 +146,7 @@ fn test_andi_sign_extended() {
 
 #[test]
 fn test_ori() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0xF0);
     cpu.bus.write32(0x80000000, 0x00F0E113);
     cpu.step();
@@ -155,7 +155,7 @@ fn test_ori() {
 
 #[test]
 fn test_xori() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0xFF);
     cpu.bus.write32(0x80000000, 0x0FF0C113);
     cpu.step();
@@ -164,7 +164,7 @@ fn test_xori() {
 
 #[test]
 fn test_xori_sign_extended() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0xFF);
     cpu.bus.write32(0x80000000, 0xFFF0C113);
     cpu.step();
@@ -173,7 +173,7 @@ fn test_xori_sign_extended() {
 
 #[test]
 fn test_sll() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 1);
     cpu.write_reg(2, 4);
     cpu.bus.write32(0x80000000, 0x002091B3);
@@ -183,7 +183,7 @@ fn test_sll() {
 
 #[test]
 fn test_srl() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x80000000);
     cpu.write_reg(2, 4);
     cpu.bus.write32(0x80000000, 0x0020D1B3);
@@ -193,7 +193,7 @@ fn test_srl() {
 
 #[test]
 fn test_srl_shamt_wrap() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x8000000000000000);
     cpu.write_reg(2, 68);
     cpu.bus.write32(0x80000000, 0x0020D1B3);
@@ -203,7 +203,7 @@ fn test_srl_shamt_wrap() {
 
 #[test]
 fn test_sra() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x8000000000000000);
     cpu.write_reg(2, 4);
     cpu.bus.write32(0x80000000, 0x4020D1B3);
@@ -213,7 +213,7 @@ fn test_sra() {
 
 #[test]
 fn test_slli() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 1);
     cpu.bus.write32(0x80000000, 0x00409113);
     cpu.step();
@@ -222,7 +222,7 @@ fn test_slli() {
 
 #[test]
 fn test_srli() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x80000000);
     cpu.bus.write32(0x80000000, 0x0040D113);
     cpu.step();
@@ -231,7 +231,7 @@ fn test_srli() {
 
 #[test]
 fn test_srai() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x8000000000000000);
     cpu.bus.write32(0x80000000, 0x4040D113);
     cpu.step();
@@ -240,7 +240,7 @@ fn test_srai() {
 
 #[test]
 fn test_slt_signed() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, (-5_i32) as u64);
     cpu.write_reg(2, 5);
     cpu.bus.write32(0x80000000, 0x0020A1B3);
@@ -250,7 +250,7 @@ fn test_slt_signed() {
 
 #[test]
 fn test_sltu_unsigned() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, (-5_i32) as u64);
     cpu.write_reg(2, 5);
     cpu.bus.write32(0x80000000, 0x0020B1B3);
@@ -260,7 +260,7 @@ fn test_sltu_unsigned() {
 
 #[test]
 fn test_slti() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 5);
     cpu.bus.write32(0x80000000, 0x00A0A113);
     cpu.step();
@@ -269,7 +269,7 @@ fn test_slti() {
 
 #[test]
 fn test_sltiu() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 5);
     cpu.bus.write32(0x80000000, 0xFFF0B113);
     cpu.step();
@@ -278,7 +278,7 @@ fn test_sltiu() {
 
 #[test]
 fn test_sw_lw() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x80001000);
     cpu.write_reg(2, 0xDEADBEEF);
     cpu.bus.write32(0x80000000, 0x0020A023);
@@ -290,7 +290,7 @@ fn test_sw_lw() {
 
 #[test]
 fn test_lb_sign_extend() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x80001000);
     cpu.bus.write8(0x80001000, 0x80);
     cpu.bus.write32(0x80000000, 0x00008103);
@@ -300,7 +300,7 @@ fn test_lb_sign_extend() {
 
 #[test]
 fn test_lbu_zero_extend() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x80001000);
     cpu.bus.write8(0x80001000, 0x80);
     cpu.bus.write32(0x80000000, 0x0000C103);
@@ -310,7 +310,7 @@ fn test_lbu_zero_extend() {
 
 #[test]
 fn test_lh_sign_extend() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x80001000);
     cpu.bus.write16(0x80001000, 0x8000);
     cpu.bus.write32(0x80000000, 0x00009103);
@@ -320,7 +320,7 @@ fn test_lh_sign_extend() {
 
 #[test]
 fn test_lhu_zero_extend() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x80001000);
     cpu.bus.write16(0x80001000, 0x8000);
     cpu.bus.write32(0x80000000, 0x0000D103);
@@ -330,7 +330,7 @@ fn test_lhu_zero_extend() {
 
 #[test]
 fn test_ld() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x80001000);
     cpu.bus.write64(0x80001000, 0xDEADBEEFCAFEBABE);
     cpu.bus.write32(0x80000000, 0x0000B103);
@@ -340,7 +340,7 @@ fn test_ld() {
 
 #[test]
 fn test_sd() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x80001000);
     cpu.write_reg(2, 0x123456789ABCDEF0);
     cpu.bus.write32(0x80000000, 0x0020B023);
@@ -350,7 +350,7 @@ fn test_sd() {
 
 #[test]
 fn test_sd_ld() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x80001000);
     cpu.write_reg(2, 0xFEDCBA9876543210);
     cpu.bus.write32(0x80000000, 0x0020B023);
@@ -362,7 +362,7 @@ fn test_sd_ld() {
 
 #[test]
 fn test_lwu() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x80001000);
     cpu.bus.write32(0x80001000, 0xDEADBEEF);
     cpu.bus.write32(0x80000000, 0x0000E103);
@@ -372,7 +372,7 @@ fn test_lwu() {
 
 #[test]
 fn test_sb() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x80001000);
     cpu.write_reg(2, 0xDEADBEEF);
     cpu.bus.write32(0x80000000, 0x00208023);
@@ -382,7 +382,7 @@ fn test_sb() {
 
 #[test]
 fn test_sh() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x80001000);
     cpu.write_reg(2, 0xDEADBEEF);
     cpu.bus.write32(0x80000000, 0x00209023);
@@ -392,7 +392,7 @@ fn test_sh() {
 
 #[test]
 fn test_beq_taken() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 100);
     cpu.write_reg(2, 100);
     cpu.bus.write32(0x80000000, 0x00208463);
@@ -402,7 +402,7 @@ fn test_beq_taken() {
 
 #[test]
 fn test_beq_not_taken() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 100);
     cpu.write_reg(2, 200);
     cpu.bus.write32(0x80000000, 0x00208463);
@@ -412,7 +412,7 @@ fn test_beq_not_taken() {
 
 #[test]
 fn test_bne_taken() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 100);
     cpu.write_reg(2, 200);
     cpu.bus.write32(0x80000000, 0x00209463);
@@ -422,7 +422,7 @@ fn test_bne_taken() {
 
 #[test]
 fn test_blt_signed() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, (-5_i32) as u64);
     cpu.write_reg(2, 5);
     cpu.bus.write32(0x80000000, 0x0020C463);
@@ -432,7 +432,7 @@ fn test_blt_signed() {
 
 #[test]
 fn test_bge_signed() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 5);
     cpu.write_reg(2, (-5_i32) as u64);
     cpu.bus.write32(0x80000000, 0x0020D463);
@@ -442,7 +442,7 @@ fn test_bge_signed() {
 
 #[test]
 fn test_bltu_unsigned() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 5);
     cpu.write_reg(2, (-1_i32) as u64);
     cpu.bus.write32(0x80000000, 0x0020E463);
@@ -452,7 +452,7 @@ fn test_bltu_unsigned() {
 
 #[test]
 fn test_bgeu_unsigned() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, (-1_i32) as u64);
     cpu.write_reg(2, 5);
     cpu.bus.write32(0x80000000, 0x0020F463);
@@ -462,7 +462,7 @@ fn test_bgeu_unsigned() {
 
 #[test]
 fn test_branch_backward() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.pc = 0x80000008;
     cpu.write_reg(1, 1);
     cpu.write_reg(2, 1);
@@ -473,7 +473,7 @@ fn test_branch_backward() {
 
 #[test]
 fn test_jal() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.bus.write32(0x80000000, 0x008000EF);
     cpu.step();
     assert_eq!(cpu.read_reg(1), 0x80000004);
@@ -482,7 +482,7 @@ fn test_jal() {
 
 #[test]
 fn test_jal_backward() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.pc = 0x80000008;
     cpu.bus.write32(0x80000008, 0xFFDFF0EF);
     cpu.step();
@@ -492,7 +492,7 @@ fn test_jal_backward() {
 
 #[test]
 fn test_jalr() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(2, 0x80001000);
     cpu.bus.write32(0x80000000, 0x000100E7);
     cpu.step();
@@ -502,7 +502,7 @@ fn test_jalr() {
 
 #[test]
 fn test_jalr_with_offset() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(2, 0x80001000);
     cpu.bus.write32(0x80000000, 0x004100E7);
     cpu.step();
@@ -512,7 +512,7 @@ fn test_jalr_with_offset() {
 
 #[test]
 fn test_jalr_clears_lsb() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(2, 0x80001001);
     cpu.bus.write32(0x80000000, 0x000100E7);
     cpu.step();
@@ -521,7 +521,7 @@ fn test_jalr_clears_lsb() {
 
 #[test]
 fn test_lui() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.bus.write32(0x80000000, 0x123450B7);
     cpu.step();
     assert_eq!(cpu.read_reg(1), 0x12345000);
@@ -529,7 +529,7 @@ fn test_lui() {
 
 #[test]
 fn test_lui_high_bit() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.bus.write32(0x80000000, 0x800000B7);
     cpu.step();
     assert_eq!(cpu.read_reg(1), 0xFFFFFFFF80000000);
@@ -537,7 +537,7 @@ fn test_lui_high_bit() {
 
 #[test]
 fn test_auipc() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.bus.write32(0x80000000, 0x12345097);
     cpu.step();
     assert_eq!(cpu.read_reg(1), 0x80000000 + 0x12345000);
@@ -545,7 +545,7 @@ fn test_auipc() {
 
 #[test]
 fn test_auipc_different_pc() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.pc = 0x80001000;
     cpu.bus.write32(0x80001000, 0x00001097);
     cpu.step();
@@ -556,7 +556,7 @@ fn test_auipc_different_pc() {
 
 #[test]
 fn test_ecall_from_m_mode() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(csr::MTVEC, 0x80001000);
     cpu.bus.write32(0x80000000, 0x00000073); // ecall
     cpu.step();
@@ -569,7 +569,7 @@ fn test_ecall_from_m_mode() {
 
 #[test]
 fn test_ecall_from_s_mode() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.mode = PrivilegeMode::Supervisor;
     cpu.csr.write(csr::MTVEC, 0x80001000);
     cpu.bus.write32(0x80000000, 0x00000073); // ecall
@@ -582,7 +582,7 @@ fn test_ecall_from_s_mode() {
 
 #[test]
 fn test_ebreak() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(csr::MTVEC, 0x80001000);
     cpu.bus.write32(0x80000000, 0x00100073); // ebreak
     cpu.step();
@@ -594,7 +594,7 @@ fn test_ebreak() {
 
 #[test]
 fn test_trap_saves_mstatus() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(csr::MTVEC, 0x80001000);
     cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE); // MIE = 1
     cpu.bus.write32(0x80000000, 0x00000073); // ecall
@@ -608,7 +608,7 @@ fn test_trap_saves_mstatus() {
 
 #[test]
 fn test_trap_mpp_stores_previous_mode() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.mode = PrivilegeMode::Supervisor;
     cpu.csr.write(csr::MTVEC, 0x80001000);
     cpu.bus.write32(0x80000000, 0x00000073); // ecall
@@ -621,7 +621,7 @@ fn test_trap_mpp_stores_previous_mode() {
 
 #[test]
 fn test_ecall_no_pc_increment() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(csr::MTVEC, 0x80001000);
     cpu.bus.write32(0x80000000, 0x00000073); // ecall
     cpu.step();
@@ -635,7 +635,7 @@ fn test_ecall_no_pc_increment() {
 #[test]
 fn test_trap_mtvec_direct_mode() {
     // mtvec mode = 0 (Direct): 모든 트랩이 base로
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(csr::MTVEC, 0x80001000); // mode = 0
     cpu.bus.write32(0x80000000, 0x00000073); // ecall
     cpu.step();
@@ -646,7 +646,7 @@ fn test_trap_mtvec_direct_mode() {
 #[test]
 fn test_trap_mtvec_direct_mode_strips_mode_bits() {
     // mtvec에 mode 비트가 있어도 base만 사용
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(csr::MTVEC, 0x80001000 | 0x0); // 명시적 Direct mode
     cpu.bus.write32(0x80000000, 0x00000073); // ecall
     cpu.step();
@@ -657,7 +657,7 @@ fn test_trap_mtvec_direct_mode_strips_mode_bits() {
 #[test]
 fn test_trap_mtvec_vectored_mode_exception() {
     // mtvec mode = 1 (Vectored): 예외는 여전히 base로
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(csr::MTVEC, 0x80001000 | 0x1); // mode = 1 (Vectored)
     cpu.bus.write32(0x80000000, 0x00000073); // ecall (예외)
     cpu.step();
@@ -669,7 +669,7 @@ fn test_trap_mtvec_vectored_mode_exception() {
 #[test]
 fn test_trap_mtvec_vectored_mode_extracts_base() {
     // Vectored 모드에서 하위 2비트 제거 확인
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(csr::MTVEC, 0x80001001); // base=0x80001000, mode=1
     cpu.bus.write32(0x80000000, 0x00100073); // ebreak
     cpu.step();
@@ -682,7 +682,7 @@ fn test_trap_mtvec_vectored_mode_extracts_base() {
 
 #[test]
 fn test_mret_restores_pc() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(csr::MEPC, 0x80002000);
     cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MPP); // MPP = Machine (3)
     cpu.bus.write32(0x80000000, 0x30200073); // mret
@@ -693,7 +693,7 @@ fn test_mret_restores_pc() {
 
 #[test]
 fn test_mret_restores_mode_from_mpp() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(csr::MEPC, 0x80002000);
     // MPP = Supervisor (1 << 11)
     cpu.csr.write(csr::MSTATUS, 1 << 11);
@@ -705,7 +705,7 @@ fn test_mret_restores_mode_from_mpp() {
 
 #[test]
 fn test_mret_restores_mie_from_mpie() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(csr::MEPC, 0x80002000);
     cpu.csr
         .write(csr::MSTATUS, csr::MSTATUS_MPIE | csr::MSTATUS_MPP); // MPIE=1
@@ -719,7 +719,7 @@ fn test_mret_restores_mie_from_mpie() {
 
 #[test]
 fn test_mret_clears_mpp() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(csr::MEPC, 0x80002000);
     cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MPP); // MPP = Machine
     cpu.bus.write32(0x80000000, 0x30200073); // mret
@@ -731,7 +731,7 @@ fn test_mret_clears_mpp() {
 
 #[test]
 fn test_sret_restores_pc() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.mode = PrivilegeMode::Supervisor;
     cpu.csr.write(csr::SEPC, 0x80003000);
     cpu.csr.write(csr::SSTATUS, csr::SSTATUS_SPP); // SPP = Supervisor
@@ -743,7 +743,7 @@ fn test_sret_restores_pc() {
 
 #[test]
 fn test_sret_restores_mode_from_spp() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.mode = PrivilegeMode::Supervisor;
     cpu.csr.write(csr::SEPC, 0x80003000);
     cpu.csr.write(csr::SSTATUS, 0); // SPP = 0 (User)
@@ -755,7 +755,7 @@ fn test_sret_restores_mode_from_spp() {
 
 #[test]
 fn test_sret_restores_sie_from_spie() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.mode = PrivilegeMode::Supervisor;
     cpu.csr.write(csr::SEPC, 0x80003000);
     cpu.csr
@@ -770,7 +770,7 @@ fn test_sret_restores_sie_from_spie() {
 
 #[test]
 fn test_sret_clears_spp() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.mode = PrivilegeMode::Supervisor;
     cpu.csr.write(csr::SEPC, 0x80003000);
     cpu.csr.write(csr::SSTATUS, csr::SSTATUS_SPP); // SPP = Supervisor
@@ -783,7 +783,7 @@ fn test_sret_clears_spp() {
 
 #[test]
 fn test_mret_no_pc_increment() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(csr::MEPC, 0x80002000);
     cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MPP);
     cpu.bus.write32(0x80000000, 0x30200073); // mret
@@ -796,7 +796,7 @@ fn test_mret_no_pc_increment() {
 // === RV64I W suffix operations ===
 #[test]
 fn test_addiw() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 10);
     cpu.bus.write32(0x80000000, 0x0140811B);
     cpu.step();
@@ -805,7 +805,7 @@ fn test_addiw() {
 
 #[test]
 fn test_addiw_overflow() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x7FFFFFFF);
     cpu.bus.write32(0x80000000, 0x0010811B);
     cpu.step();
@@ -814,7 +814,7 @@ fn test_addiw_overflow() {
 
 #[test]
 fn test_addiw_negative() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0);
     cpu.bus.write32(0x80000000, 0xFFF0811B);
     cpu.step();
@@ -823,7 +823,7 @@ fn test_addiw_negative() {
 
 #[test]
 fn test_addiw_ignores_upper_bits() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0xFFFFFFFF00000005);
     cpu.bus.write32(0x80000000, 0x0030811B);
     cpu.step();
@@ -832,7 +832,7 @@ fn test_addiw_ignores_upper_bits() {
 
 #[test]
 fn test_slliw() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 1);
     cpu.bus.write32(0x80000000, 0x0040911B);
     cpu.step();
@@ -841,7 +841,7 @@ fn test_slliw() {
 
 #[test]
 fn test_slliw_sign_extend() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x40000000);
     cpu.bus.write32(0x80000000, 0x0010911B);
     cpu.step();
@@ -850,7 +850,7 @@ fn test_slliw_sign_extend() {
 
 #[test]
 fn test_srliw() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x80000000);
     cpu.bus.write32(0x80000000, 0x0040D11B);
     cpu.step();
@@ -859,7 +859,7 @@ fn test_srliw() {
 
 #[test]
 fn test_srliw_upper_ignored() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0xFFFFFFFF80000000);
     cpu.bus.write32(0x80000000, 0x0040D11B);
     cpu.step();
@@ -868,7 +868,7 @@ fn test_srliw_upper_ignored() {
 
 #[test]
 fn test_sraiw() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x80000000);
     cpu.bus.write32(0x80000000, 0x4040D11B);
     cpu.step();
@@ -877,7 +877,7 @@ fn test_sraiw() {
 
 #[test]
 fn test_sraiw_positive() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x40000000);
     cpu.bus.write32(0x80000000, 0x4040D11B);
     cpu.step();
@@ -886,7 +886,7 @@ fn test_sraiw_positive() {
 
 #[test]
 fn test_addw() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 10);
     cpu.write_reg(2, 20);
     cpu.bus.write32(0x80000000, 0x002081BB);
@@ -896,7 +896,7 @@ fn test_addw() {
 
 #[test]
 fn test_addw_overflow() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x7FFFFFFF);
     cpu.write_reg(2, 1);
     cpu.bus.write32(0x80000000, 0x002081BB);
@@ -906,7 +906,7 @@ fn test_addw_overflow() {
 
 #[test]
 fn test_subw() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 100);
     cpu.write_reg(2, 30);
     cpu.bus.write32(0x80000000, 0x402081BB);
@@ -916,7 +916,7 @@ fn test_subw() {
 
 #[test]
 fn test_subw_underflow() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0);
     cpu.write_reg(2, 1);
     cpu.bus.write32(0x80000000, 0x402081BB);
@@ -926,7 +926,7 @@ fn test_subw_underflow() {
 
 #[test]
 fn test_sllw() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 1);
     cpu.write_reg(2, 4);
     cpu.bus.write32(0x80000000, 0x002091BB);
@@ -936,7 +936,7 @@ fn test_sllw() {
 
 #[test]
 fn test_sllw_sign_extend() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x40000000);
     cpu.write_reg(2, 1);
     cpu.bus.write32(0x80000000, 0x002091BB);
@@ -946,7 +946,7 @@ fn test_sllw_sign_extend() {
 
 #[test]
 fn test_srlw() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x80000000);
     cpu.write_reg(2, 4);
     cpu.bus.write32(0x80000000, 0x0020D1BB);
@@ -956,7 +956,7 @@ fn test_srlw() {
 
 #[test]
 fn test_sraw() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x80000000);
     cpu.write_reg(2, 4);
     cpu.bus.write32(0x80000000, 0x4020D1BB);
@@ -966,7 +966,7 @@ fn test_sraw() {
 
 #[test]
 fn test_sraw_positive() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x40000000);
     cpu.write_reg(2, 4);
     cpu.bus.write32(0x80000000, 0x4020D1BB);
@@ -979,7 +979,7 @@ fn test_sraw_positive() {
 #[test]
 fn test_csrrw() {
     // CSRRW x1, 0x300, x2
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(0x300, 0xAAAA);
     cpu.write_reg(2, 0xBBBB);
     cpu.bus.write32(0x80000000, 0x300110F3);
@@ -991,7 +991,7 @@ fn test_csrrw() {
 #[test]
 fn test_csrrw_rd_x0() {
     // CSRRW x0, 0x300, x2 (rd=x0, just write)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(0x300, 0xAAAA);
     cpu.write_reg(2, 0xBBBB);
     cpu.bus.write32(0x80000000, 0x30011073);
@@ -1003,7 +1003,7 @@ fn test_csrrw_rd_x0() {
 #[test]
 fn test_csrrs() {
     // CSRRS x1, 0x300, x2
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(0x300, 0b1100);
     cpu.write_reg(2, 0b0011);
     cpu.bus.write32(0x80000000, 0x300120F3);
@@ -1015,7 +1015,7 @@ fn test_csrrs() {
 #[test]
 fn test_csrrs_rs1_x0() {
     // CSRRS x1, 0x300, x0 (read only, no modify)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(0x300, 0xAAAA);
     cpu.bus.write32(0x80000000, 0x300020F3);
     cpu.step();
@@ -1026,7 +1026,7 @@ fn test_csrrs_rs1_x0() {
 #[test]
 fn test_csrrc() {
     // CSRRC x1, 0x300, x2
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(0x300, 0b1111);
     cpu.write_reg(2, 0b0011);
     cpu.bus.write32(0x80000000, 0x300130F3);
@@ -1038,7 +1038,7 @@ fn test_csrrc() {
 #[test]
 fn test_csrrc_rs1_x0() {
     // CSRRC x1, 0x300, x0 (read only, no modify)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(0x300, 0xAAAA);
     cpu.bus.write32(0x80000000, 0x300030F3);
     cpu.step();
@@ -1049,7 +1049,7 @@ fn test_csrrc_rs1_x0() {
 #[test]
 fn test_csrrwi() {
     // CSRRWI x1, 0x300, 0x1F (zimm=31)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(0x300, 0xAAAA);
     cpu.bus.write32(0x80000000, 0x300FD0F3);
     cpu.step();
@@ -1060,7 +1060,7 @@ fn test_csrrwi() {
 #[test]
 fn test_csrrsi() {
     // CSRRSI x1, 0x300, 0x03 (zimm=3)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(0x300, 0b1100);
     cpu.bus.write32(0x80000000, 0x3001E0F3);
     cpu.step();
@@ -1071,7 +1071,7 @@ fn test_csrrsi() {
 #[test]
 fn test_csrrsi_zimm_0() {
     // CSRRSI x1, 0x300, 0 (read only)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(0x300, 0xAAAA);
     cpu.bus.write32(0x80000000, 0x300060F3);
     cpu.step();
@@ -1082,7 +1082,7 @@ fn test_csrrsi_zimm_0() {
 #[test]
 fn test_csrrci() {
     // CSRRCI x1, 0x300, 0x03 (zimm=3)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(0x300, 0b1111);
     cpu.bus.write32(0x80000000, 0x3001F0F3);
     cpu.step();
@@ -1093,7 +1093,7 @@ fn test_csrrci() {
 #[test]
 fn test_csrrci_zimm_0() {
     // CSRRCI x1, 0x300, 0 (read only)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(0x300, 0xAAAA);
     cpu.bus.write32(0x80000000, 0x300070F3);
     cpu.step();
@@ -1106,7 +1106,7 @@ fn test_csrrci_zimm_0() {
 #[test]
 fn test_ecall_mret_roundtrip() {
     // ecall로 trap → mret으로 복귀하는 전체 흐름 테스트
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(csr::MTVEC, 0x80001000); // trap handler at 0x80001000
     cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE); // MIE = 1
 
@@ -1135,7 +1135,7 @@ fn test_ecall_mret_roundtrip() {
 #[test]
 fn test_ecall_mret_roundtrip_from_supervisor() {
     // S-mode에서 ecall → M-mode handler → mret으로 S-mode 복귀
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.mode = PrivilegeMode::Supervisor;
     cpu.csr.write(csr::MTVEC, 0x80001000);
 
@@ -1158,7 +1158,7 @@ fn test_ecall_mret_roundtrip_from_supervisor() {
 #[test]
 fn test_uart_output_rv64() {
     // UART로 "RV64!" 출력 + 64비트 연산 검증
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(csr::MTVEC, 0x80002000); // ecall handler
 
     let program: Vec<u32> = vec![
@@ -1211,7 +1211,7 @@ fn test_sum_1_to_10_loop() {
     // while (i < 11) { sum += i; i++; }
     // result: sum = 55
 
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.csr.write(csr::MTVEC, 0x80002000);
 
     // x1 = sum, x2 = i, x3 = limit
@@ -1246,7 +1246,7 @@ fn test_sum_1_to_10_loop() {
 
 #[test]
 fn test_mtime_increments_on_step() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     // NOP: addi x0, x0, 0
     cpu.bus.write32(0x80000000, 0x00000013);
 
@@ -1259,7 +1259,7 @@ fn test_mtime_increments_on_step() {
 
 #[test]
 fn test_mtime_increments_multiple_steps() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     // NOP: addi x0, x0, 0
     for i in 0..10 {
         cpu.bus.write32(0x80000000 + i * 4, 0x00000013);
@@ -1276,7 +1276,7 @@ fn test_mtime_increments_multiple_steps() {
 
 #[test]
 fn test_timer_interrupt_triggers() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
     // 인터럽트 활성화
     cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
@@ -1302,12 +1302,15 @@ fn test_timer_interrupt_triggers() {
     cpu.step();
 
     assert_eq!(cpu.pc, 0x80001000); // mtvec으로 점프
-    assert_eq!(cpu.csr.read(csr::MCAUSE), csr::INTERRUPT_BIT | csr::INTERRUPT_FROM_TIMER);
+    assert_eq!(
+        cpu.csr.read(csr::MCAUSE),
+        csr::INTERRUPT_BIT | csr::INTERRUPT_FROM_TIMER
+    );
 }
 
 #[test]
 fn test_timer_interrupt_disabled_mie() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
     // 전역 인터럽트 비활성화 (MSTATUS_MIE = 0)
     cpu.csr.write(csr::MSTATUS, 0);
@@ -1333,7 +1336,7 @@ fn test_timer_interrupt_disabled_mie() {
 
 #[test]
 fn test_timer_interrupt_disabled_mtie() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
     // 전역 인터럽트 활성화, 타이머 인터럽트 비활성화
     cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
@@ -1358,7 +1361,7 @@ fn test_timer_interrupt_disabled_mtie() {
 
 #[test]
 fn test_timer_interrupt_saves_state() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
     cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
     cpu.csr.write(csr::MIE, csr::MIE_MTIE);
@@ -1384,7 +1387,7 @@ fn test_timer_interrupt_saves_state() {
 #[test]
 fn test_timer_interrupt_clear_by_mtimecmp_update() {
     // mtimecmp를 더 큰 값으로 업데이트하면 인터럽트가 클리어됨
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
     cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
     cpu.csr.write(csr::MIE, csr::MIE_MTIE);
@@ -1414,7 +1417,7 @@ fn test_timer_interrupt_clear_by_mtimecmp_update() {
 #[test]
 fn test_timer_interrupt_full_cycle() {
     // 전체 사이클: 인터럽트 발생 → 핸들러 → mret → 정상 실행 재개
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
     cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
     cpu.csr.write(csr::MIE, csr::MIE_MTIE);
@@ -1462,7 +1465,7 @@ fn test_timer_interrupt_full_cycle() {
 #[test]
 fn test_timer_interrupt_periodic() {
     // 주기적 인터럽트: 첫 번째 인터럽트 → 클리어 → 두 번째 인터럽트
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
     cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
     cpu.csr.write(csr::MIE, csr::MIE_MTIE);
@@ -1498,14 +1501,18 @@ fn test_timer_interrupt_periodic() {
     }
 
     // 여러 번의 인터럽트가 발생해야 함
-    assert!(interrupt_count >= 2, "Expected at least 2 interrupts, got {}", interrupt_count);
+    assert!(
+        interrupt_count >= 2,
+        "Expected at least 2 interrupts, got {}",
+        interrupt_count
+    );
 }
 
 // === MIP 레지스터 반영 테스트 ===
 
 #[test]
 fn test_mip_mtip_reflects_timer_condition() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
     // mtimecmp = 3
     cpu.bus.write64(0x2004000, 3);
@@ -1523,23 +1530,35 @@ fn test_mip_mtip_reflects_timer_condition() {
     cpu.step(); // mtime = 1
     cpu.step(); // mtime = 2
     let mip = cpu.csr.read(csr::MIP);
-    assert_eq!(mip & csr::MIP_MTIP, 0, "MTIP should be 0 when mtime < mtimecmp");
+    assert_eq!(
+        mip & csr::MIP_MTIP,
+        0,
+        "MTIP should be 0 when mtime < mtimecmp"
+    );
 
     // step 3: mtime = 3 (>= mtimecmp), MTIP = 1
     cpu.step();
     let mip = cpu.csr.read(csr::MIP);
-    assert_ne!(mip & csr::MIP_MTIP, 0, "MTIP should be 1 when mtime >= mtimecmp");
+    assert_ne!(
+        mip & csr::MIP_MTIP,
+        0,
+        "MTIP should be 1 when mtime >= mtimecmp"
+    );
 
     // mtimecmp 업데이트 후: MTIP = 0
     cpu.bus.write64(0x2004000, 100);
     cpu.step();
     let mip = cpu.csr.read(csr::MIP);
-    assert_eq!(mip & csr::MIP_MTIP, 0, "MTIP should be 0 after mtimecmp update");
+    assert_eq!(
+        mip & csr::MIP_MTIP,
+        0,
+        "MTIP should be 0 after mtimecmp update"
+    );
 }
 
 #[test]
 fn test_mip_msip_reflects_clint_msip() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
     // 인터럽트 비활성화 상태에서 MIP만 확인
     cpu.csr.write(csr::MSTATUS, 0); // MIE = 0
@@ -1552,26 +1571,38 @@ fn test_mip_msip_reflects_clint_msip() {
     // CLINT msip = 0: MIP.MSIP = 0
     cpu.step();
     let mip = cpu.csr.read(csr::MIP);
-    assert_eq!(mip & csr::MIP_MSIP, 0, "MSIP should be 0 when CLINT msip = 0");
+    assert_eq!(
+        mip & csr::MIP_MSIP,
+        0,
+        "MSIP should be 0 when CLINT msip = 0"
+    );
 
     // CLINT msip = 1: MIP.MSIP = 1
     cpu.bus.write32(0x2000000, 1);
     cpu.step();
     let mip = cpu.csr.read(csr::MIP);
-    assert_ne!(mip & csr::MIP_MSIP, 0, "MSIP should be 1 when CLINT msip = 1");
+    assert_ne!(
+        mip & csr::MIP_MSIP,
+        0,
+        "MSIP should be 1 when CLINT msip = 1"
+    );
 
     // CLINT msip = 0: MIP.MSIP = 0
     cpu.bus.write32(0x2000000, 0);
     cpu.step();
     let mip = cpu.csr.read(csr::MIP);
-    assert_eq!(mip & csr::MIP_MSIP, 0, "MSIP should be 0 after CLINT msip cleared");
+    assert_eq!(
+        mip & csr::MIP_MSIP,
+        0,
+        "MSIP should be 0 after CLINT msip cleared"
+    );
 }
 
 // === 소프트웨어 인터럽트 테스트 ===
 
 #[test]
 fn test_software_interrupt_triggers() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
     cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
     cpu.csr.write(csr::MIE, csr::MIE_MSIE);
@@ -1594,7 +1625,7 @@ fn test_software_interrupt_triggers() {
 
 #[test]
 fn test_software_interrupt_disabled_msie() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
     cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
     cpu.csr.write(csr::MIE, 0); // MSIE = 0
@@ -1618,7 +1649,7 @@ fn test_software_interrupt_disabled_msie() {
 #[test]
 fn test_software_interrupt_priority_over_timer() {
     // 소프트웨어 인터럽트가 타이머보다 우선순위 높음
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
     cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
     cpu.csr.write(csr::MIE, csr::MIE_MSIE | csr::MIE_MTIE); // 둘 다 활성화
@@ -1645,7 +1676,7 @@ fn test_software_interrupt_priority_over_timer() {
 
 #[test]
 fn test_software_interrupt_clear() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
     cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
     cpu.csr.write(csr::MIE, csr::MIE_MSIE);
@@ -1675,7 +1706,7 @@ fn test_software_interrupt_clear() {
 
 #[test]
 fn test_uart_external_interrupt_triggers() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
     // 인터럽트 활성화
     cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
@@ -1700,7 +1731,7 @@ fn test_uart_external_interrupt_triggers() {
 
 #[test]
 fn test_uart_interrupt_disabled_meie() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
     // NOP 명령어
     for i in 0..10 {
@@ -1724,7 +1755,7 @@ fn test_uart_interrupt_disabled_meie() {
 
 #[test]
 fn test_mip_meip_reflects_uart_interrupt() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
     // NOP 명령어
     for i in 0..10 {
@@ -1742,7 +1773,11 @@ fn test_mip_meip_reflects_uart_interrupt() {
 
     cpu.step();
     let mip = cpu.csr.read(csr::MIP);
-    assert_ne!(mip & csr::MIP_MEIP, 0, "MEIP should be 1 when UART interrupt pending");
+    assert_ne!(
+        mip & csr::MIP_MEIP,
+        0,
+        "MEIP should be 1 when UART interrupt pending"
+    );
 
     // UART RBR 읽어서 인터럽트 클리어
     cpu.bus.read8(0x10000000);
@@ -1754,11 +1789,12 @@ fn test_mip_meip_reflects_uart_interrupt() {
 
 #[test]
 fn test_uart_interrupt_priority() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
     // 모든 인터럽트 활성화
     cpu.csr.write(csr::MSTATUS, csr::MSTATUS_MIE);
-    cpu.csr.write(csr::MIE, csr::MIE_MSIE | csr::MIE_MTIE | csr::MIE_MEIE);
+    cpu.csr
+        .write(csr::MIE, csr::MIE_MSIE | csr::MIE_MTIE | csr::MIE_MEIE);
     cpu.csr.write(csr::MTVEC, 0x80001000);
 
     // UART 인터럽트만 발생
@@ -1778,15 +1814,13 @@ fn test_uart_interrupt_priority() {
 fn test_load_segments() {
     use crate::elf::Segment;
 
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
-    let segments = vec![
-        Segment {
-            vaddr: 0x80000000,
-            data: vec![0x13, 0x00, 0x00, 0x00], // nop
-            memsz: 4,
-        },
-    ];
+    let segments = vec![Segment {
+        vaddr: 0x80000000,
+        data: vec![0x13, 0x00, 0x00, 0x00], // nop
+        memsz: 4,
+    }];
 
     cpu.load_segments(&segments, 0x80000000);
 
@@ -1798,7 +1832,7 @@ fn test_load_segments() {
 fn test_load_segments_multiple() {
     use crate::elf::Segment;
 
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
     let segments = vec![
         Segment {
@@ -1823,15 +1857,13 @@ fn test_load_segments_multiple() {
 fn test_load_segments_entry_point() {
     use crate::elf::Segment;
 
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
-    let segments = vec![
-        Segment {
-            vaddr: 0x80000000,
-            data: vec![0x13, 0x00, 0x00, 0x00],
-            memsz: 4,
-        },
-    ];
+    let segments = vec![Segment {
+        vaddr: 0x80000000,
+        data: vec![0x13, 0x00, 0x00, 0x00],
+        memsz: 4,
+    }];
 
     // entry point가 segment 시작과 다를 수 있음
     cpu.load_segments(&segments, 0x80000100);
@@ -1843,7 +1875,7 @@ fn test_load_segments_entry_point() {
 fn test_load_segments_bss() {
     use crate::elf::Segment;
 
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
     // BSS: filesz=4, memsz=12 (8바이트는 0으로 초기화)
     let segments = vec![Segment {
@@ -1876,7 +1908,7 @@ fn test_load_segments_bss() {
 #[test]
 fn test_mul_basic() {
     // MUL x3, x1, x2: x3 = x1 * x2
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 7);
     cpu.write_reg(2, 6);
     cpu.bus.write32(0x80000000, 0x022081B3); // mul x3, x1, x2
@@ -1886,7 +1918,7 @@ fn test_mul_basic() {
 
 #[test]
 fn test_mul_by_zero() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 12345);
     cpu.write_reg(2, 0);
     cpu.bus.write32(0x80000000, 0x022081B3); // mul x3, x1, x2
@@ -1897,7 +1929,7 @@ fn test_mul_by_zero() {
 #[test]
 fn test_mul_negative() {
     // (-3) * 7 = -21
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, (-3_i64) as u64);
     cpu.write_reg(2, 7);
     cpu.bus.write32(0x80000000, 0x022081B3); // mul x3, x1, x2
@@ -1908,7 +1940,7 @@ fn test_mul_negative() {
 #[test]
 fn test_mul_both_negative() {
     // (-5) * (-4) = 20
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, (-5_i64) as u64);
     cpu.write_reg(2, (-4_i64) as u64);
     cpu.bus.write32(0x80000000, 0x022081B3); // mul x3, x1, x2
@@ -1919,7 +1951,7 @@ fn test_mul_both_negative() {
 #[test]
 fn test_mul_overflow() {
     // 큰 수 곱셈 - 하위 64비트만 저장
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x1_0000_0000); // 2^32
     cpu.write_reg(2, 0x1_0000_0000); // 2^32
     cpu.bus.write32(0x80000000, 0x022081B3); // mul x3, x1, x2
@@ -1930,7 +1962,7 @@ fn test_mul_overflow() {
 
 #[test]
 fn test_mul_large_values() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0xFFFFFFFF); // 2^32 - 1
     cpu.write_reg(2, 2);
     cpu.bus.write32(0x80000000, 0x022081B3); // mul x3, x1, x2
@@ -1943,7 +1975,7 @@ fn test_mul_large_values() {
 #[test]
 fn test_mulh_small_numbers() {
     // 작은 수 곱셈: 상위 64비트는 0
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 100);
     cpu.write_reg(2, 200);
     cpu.bus.write32(0x80000000, 0x022091B3); // mulh x3, x1, x2
@@ -1954,7 +1986,7 @@ fn test_mulh_small_numbers() {
 #[test]
 fn test_mulh_large_positive() {
     // 2^63 * 2 = 2^64, 상위 64비트 = 1
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x8000_0000_0000_0000); // -2^63 as signed, but treated as large positive for bit pattern
     cpu.write_reg(2, 2);
     cpu.bus.write32(0x80000000, 0x022091B3); // mulh x3, x1, x2
@@ -1966,7 +1998,7 @@ fn test_mulh_large_positive() {
 #[test]
 fn test_mulh_negative_times_positive() {
     // -1 * 0x7FFFFFFFFFFFFFFF (large positive)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0xFFFF_FFFF_FFFF_FFFF); // -1
     cpu.write_reg(2, 0x7FFF_FFFF_FFFF_FFFF); // max positive
     cpu.bus.write32(0x80000000, 0x022091B3); // mulh x3, x1, x2
@@ -1978,7 +2010,7 @@ fn test_mulh_negative_times_positive() {
 #[test]
 fn test_mulh_both_negative() {
     // -2 * -3 = 6, small result, upper bits = 0
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, (-2_i64) as u64);
     cpu.write_reg(2, (-3_i64) as u64);
     cpu.bus.write32(0x80000000, 0x022091B3); // mulh x3, x1, x2
@@ -1990,7 +2022,7 @@ fn test_mulh_both_negative() {
 
 #[test]
 fn test_mulhu_small_numbers() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 100);
     cpu.write_reg(2, 200);
     cpu.bus.write32(0x80000000, 0x0220B1B3); // mulhu x3, x1, x2
@@ -2002,7 +2034,7 @@ fn test_mulhu_small_numbers() {
 fn test_mulhu_large_values() {
     // 0x8000_0000_0000_0000 * 2 = 0x1_0000_0000_0000_0000
     // upper 64 bits = 1
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x8000_0000_0000_0000);
     cpu.write_reg(2, 2);
     cpu.bus.write32(0x80000000, 0x0220B1B3); // mulhu x3, x1, x2
@@ -2014,7 +2046,7 @@ fn test_mulhu_large_values() {
 fn test_mulhu_max_values() {
     // (2^64-1) * (2^64-1) = 2^128 - 2^65 + 1
     // upper 64 bits = 2^64 - 2 = 0xFFFFFFFFFFFFFFFE
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0xFFFF_FFFF_FFFF_FFFF);
     cpu.write_reg(2, 0xFFFF_FFFF_FFFF_FFFF);
     cpu.bus.write32(0x80000000, 0x0220B1B3); // mulhu x3, x1, x2
@@ -2026,7 +2058,7 @@ fn test_mulhu_max_values() {
 
 #[test]
 fn test_mulhsu_positive_times_positive() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 100); // signed positive
     cpu.write_reg(2, 200); // unsigned
     cpu.bus.write32(0x80000000, 0x0220A1B3); // mulhsu x3, x1, x2
@@ -2039,7 +2071,7 @@ fn test_mulhsu_negative_times_positive() {
     // -1 (signed) * 1 (unsigned) = -1
     // 128-bit: 0xFFFFFFFFFFFFFFFF_FFFFFFFFFFFFFFFF
     // upper 64 bits = 0xFFFFFFFFFFFFFFFF
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0xFFFF_FFFF_FFFF_FFFF); // -1 as signed
     cpu.write_reg(2, 1);
     cpu.bus.write32(0x80000000, 0x0220A1B3); // mulhsu x3, x1, x2
@@ -2052,7 +2084,7 @@ fn test_mulhsu_negative_times_large() {
     // -1 (signed) * 0x8000_0000_0000_0000 (unsigned)
     // = -0x8000_0000_0000_0000 (as 128-bit signed)
     // upper 64 bits = 0xFFFF_FFFF_FFFF_FFFF
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0xFFFF_FFFF_FFFF_FFFF); // -1
     cpu.write_reg(2, 0x8000_0000_0000_0000);
     cpu.bus.write32(0x80000000, 0x0220A1B3); // mulhsu x3, x1, x2
@@ -2065,7 +2097,7 @@ fn test_mulhsu_min_signed_times_two() {
     // -2^63 (signed) * 2 (unsigned) = -2^64
     // 128-bit: 0xFFFFFFFFFFFFFFFF_0000000000000000
     // upper 64 bits = 0xFFFFFFFFFFFFFFFF
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x8000_0000_0000_0000); // -2^63
     cpu.write_reg(2, 2);
     cpu.bus.write32(0x80000000, 0x0220A1B3); // mulhsu x3, x1, x2
@@ -2078,7 +2110,7 @@ fn test_mulhsu_min_signed_times_two() {
 #[test]
 fn test_div_basic() {
     // 20 / 3 = 6
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 20);
     cpu.write_reg(2, 3);
     cpu.bus.write32(0x80000000, 0x0220C1B3); // div x3, x1, x2
@@ -2089,7 +2121,7 @@ fn test_div_basic() {
 #[test]
 fn test_div_negative_dividend() {
     // -20 / 3 = -6
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, (-20_i64) as u64);
     cpu.write_reg(2, 3);
     cpu.bus.write32(0x80000000, 0x0220C1B3); // div x3, x1, x2
@@ -2100,7 +2132,7 @@ fn test_div_negative_dividend() {
 #[test]
 fn test_div_negative_divisor() {
     // 20 / -3 = -6
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 20);
     cpu.write_reg(2, (-3_i64) as u64);
     cpu.bus.write32(0x80000000, 0x0220C1B3); // div x3, x1, x2
@@ -2111,7 +2143,7 @@ fn test_div_negative_divisor() {
 #[test]
 fn test_div_both_negative() {
     // -20 / -3 = 6
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, (-20_i64) as u64);
     cpu.write_reg(2, (-3_i64) as u64);
     cpu.bus.write32(0x80000000, 0x0220C1B3); // div x3, x1, x2
@@ -2122,7 +2154,7 @@ fn test_div_both_negative() {
 #[test]
 fn test_div_by_zero() {
     // x / 0 = -1 (all bits set)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 42);
     cpu.write_reg(2, 0);
     cpu.bus.write32(0x80000000, 0x0220C1B3); // div x3, x1, x2
@@ -2133,7 +2165,7 @@ fn test_div_by_zero() {
 #[test]
 fn test_div_overflow() {
     // -2^63 / -1 = -2^63 (overflow case)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x8000_0000_0000_0000); // i64::MIN
     cpu.write_reg(2, (-1_i64) as u64);
     cpu.bus.write32(0x80000000, 0x0220C1B3); // div x3, x1, x2
@@ -2146,7 +2178,7 @@ fn test_div_overflow() {
 #[test]
 fn test_divu_basic() {
     // 20 / 3 = 6
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 20);
     cpu.write_reg(2, 3);
     cpu.bus.write32(0x80000000, 0x0220D1B3); // divu x3, x1, x2
@@ -2157,7 +2189,7 @@ fn test_divu_basic() {
 #[test]
 fn test_divu_large_values() {
     // 0xFFFFFFFFFFFFFFFF / 2 = 0x7FFFFFFFFFFFFFFF
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0xFFFF_FFFF_FFFF_FFFF);
     cpu.write_reg(2, 2);
     cpu.bus.write32(0x80000000, 0x0220D1B3); // divu x3, x1, x2
@@ -2168,7 +2200,7 @@ fn test_divu_large_values() {
 #[test]
 fn test_divu_by_zero() {
     // x / 0 = 0xFFFFFFFFFFFFFFFF (all bits set)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 42);
     cpu.write_reg(2, 0);
     cpu.bus.write32(0x80000000, 0x0220D1B3); // divu x3, x1, x2
@@ -2180,7 +2212,7 @@ fn test_divu_by_zero() {
 fn test_divu_treats_as_unsigned() {
     // 0x8000000000000000 is large positive in unsigned
     // 0x8000000000000000 / 0x100000000 = 0x80000000
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x8000_0000_0000_0000);
     cpu.write_reg(2, 0x1_0000_0000);
     cpu.bus.write32(0x80000000, 0x0220D1B3); // divu x3, x1, x2
@@ -2193,7 +2225,7 @@ fn test_divu_treats_as_unsigned() {
 #[test]
 fn test_rem_basic() {
     // 20 % 3 = 2
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 20);
     cpu.write_reg(2, 3);
     cpu.bus.write32(0x80000000, 0x0220E1B3); // rem x3, x1, x2
@@ -2204,7 +2236,7 @@ fn test_rem_basic() {
 #[test]
 fn test_rem_negative_dividend() {
     // -20 % 3 = -2
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, (-20_i64) as u64);
     cpu.write_reg(2, 3);
     cpu.bus.write32(0x80000000, 0x0220E1B3); // rem x3, x1, x2
@@ -2215,7 +2247,7 @@ fn test_rem_negative_dividend() {
 #[test]
 fn test_rem_negative_divisor() {
     // 20 % -3 = 2
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 20);
     cpu.write_reg(2, (-3_i64) as u64);
     cpu.bus.write32(0x80000000, 0x0220E1B3); // rem x3, x1, x2
@@ -2226,7 +2258,7 @@ fn test_rem_negative_divisor() {
 #[test]
 fn test_rem_both_negative() {
     // -20 % -3 = -2
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, (-20_i64) as u64);
     cpu.write_reg(2, (-3_i64) as u64);
     cpu.bus.write32(0x80000000, 0x0220E1B3); // rem x3, x1, x2
@@ -2237,7 +2269,7 @@ fn test_rem_both_negative() {
 #[test]
 fn test_rem_by_zero() {
     // x % 0 = x (dividend)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 42);
     cpu.write_reg(2, 0);
     cpu.bus.write32(0x80000000, 0x0220E1B3); // rem x3, x1, x2
@@ -2248,7 +2280,7 @@ fn test_rem_by_zero() {
 #[test]
 fn test_rem_overflow() {
     // -2^63 % -1 = 0 (overflow case)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x8000_0000_0000_0000); // i64::MIN
     cpu.write_reg(2, (-1_i64) as u64);
     cpu.bus.write32(0x80000000, 0x0220E1B3); // rem x3, x1, x2
@@ -2261,7 +2293,7 @@ fn test_rem_overflow() {
 #[test]
 fn test_remu_basic() {
     // 20 % 3 = 2
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 20);
     cpu.write_reg(2, 3);
     cpu.bus.write32(0x80000000, 0x0220F1B3); // remu x3, x1, x2
@@ -2274,7 +2306,7 @@ fn test_remu_large_values() {
     // 0xFFFFFFFFFFFFFFFF % 7 = ?
     // 0xFFFFFFFFFFFFFFFF = 18446744073709551615
     // 18446744073709551615 % 7 = 1
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0xFFFF_FFFF_FFFF_FFFF);
     cpu.write_reg(2, 7);
     cpu.bus.write32(0x80000000, 0x0220F1B3); // remu x3, x1, x2
@@ -2285,7 +2317,7 @@ fn test_remu_large_values() {
 #[test]
 fn test_remu_by_zero() {
     // x % 0 = x (dividend)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 42);
     cpu.write_reg(2, 0);
     cpu.bus.write32(0x80000000, 0x0220F1B3); // remu x3, x1, x2
@@ -2296,7 +2328,7 @@ fn test_remu_by_zero() {
 #[test]
 fn test_remu_treats_as_unsigned() {
     // 0x8000000000000000 % 3 (treated as large positive)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x8000_0000_0000_0000);
     cpu.write_reg(2, 3);
     cpu.bus.write32(0x80000000, 0x0220F1B3); // remu x3, x1, x2
@@ -2311,7 +2343,7 @@ fn test_remu_treats_as_unsigned() {
 #[test]
 fn test_mulw_basic() {
     // 7 * 6 = 42
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 7);
     cpu.write_reg(2, 6);
     cpu.bus.write32(0x80000000, 0x022081BB); // mulw x3, x1, x2
@@ -2323,7 +2355,7 @@ fn test_mulw_basic() {
 fn test_mulw_sign_extend() {
     // 0x40000000 * 2 = 0x80000000 (negative in 32-bit)
     // sign-extended to 0xFFFFFFFF80000000
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x4000_0000);
     cpu.write_reg(2, 2);
     cpu.bus.write32(0x80000000, 0x022081BB); // mulw x3, x1, x2
@@ -2334,7 +2366,7 @@ fn test_mulw_sign_extend() {
 #[test]
 fn test_mulw_ignores_upper_bits() {
     // upper 32 bits of rs1/rs2 are ignored
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0xFFFF_FFFF_0000_0007); // lower 32 = 7
     cpu.write_reg(2, 0xFFFF_FFFF_0000_0006); // lower 32 = 6
     cpu.bus.write32(0x80000000, 0x022081BB); // mulw x3, x1, x2
@@ -2347,7 +2379,7 @@ fn test_mulw_ignores_upper_bits() {
 #[test]
 fn test_divw_basic() {
     // 20 / 3 = 6
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 20);
     cpu.write_reg(2, 3);
     cpu.bus.write32(0x80000000, 0x0220C1BB); // divw x3, x1, x2
@@ -2358,7 +2390,7 @@ fn test_divw_basic() {
 #[test]
 fn test_divw_negative() {
     // -20 / 3 = -6 (32-bit)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, (-20_i32) as u32 as u64);
     cpu.write_reg(2, 3);
     cpu.bus.write32(0x80000000, 0x0220C1BB); // divw x3, x1, x2
@@ -2369,7 +2401,7 @@ fn test_divw_negative() {
 #[test]
 fn test_divw_by_zero() {
     // x / 0 = -1
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 42);
     cpu.write_reg(2, 0);
     cpu.bus.write32(0x80000000, 0x0220C1BB); // divw x3, x1, x2
@@ -2380,7 +2412,7 @@ fn test_divw_by_zero() {
 #[test]
 fn test_divw_overflow() {
     // -2^31 / -1 = -2^31 (overflow)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x8000_0000); // i32::MIN
     cpu.write_reg(2, (-1_i32) as u32 as u64);
     cpu.bus.write32(0x80000000, 0x0220C1BB); // divw x3, x1, x2
@@ -2392,7 +2424,7 @@ fn test_divw_overflow() {
 
 #[test]
 fn test_divuw_basic() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 20);
     cpu.write_reg(2, 3);
     cpu.bus.write32(0x80000000, 0x0220D1BB); // divuw x3, x1, x2
@@ -2403,7 +2435,7 @@ fn test_divuw_basic() {
 #[test]
 fn test_divuw_large() {
     // 0x80000000 / 2 = 0x40000000 (unsigned)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x8000_0000);
     cpu.write_reg(2, 2);
     cpu.bus.write32(0x80000000, 0x0220D1BB); // divuw x3, x1, x2
@@ -2413,7 +2445,7 @@ fn test_divuw_large() {
 
 #[test]
 fn test_divuw_by_zero() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 42);
     cpu.write_reg(2, 0);
     cpu.bus.write32(0x80000000, 0x0220D1BB); // divuw x3, x1, x2
@@ -2427,7 +2459,7 @@ fn test_divuw_by_zero() {
 #[test]
 fn test_remw_basic() {
     // 20 % 3 = 2
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 20);
     cpu.write_reg(2, 3);
     cpu.bus.write32(0x80000000, 0x0220E1BB); // remw x3, x1, x2
@@ -2438,7 +2470,7 @@ fn test_remw_basic() {
 #[test]
 fn test_remw_negative() {
     // -20 % 3 = -2
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, (-20_i32) as u32 as u64);
     cpu.write_reg(2, 3);
     cpu.bus.write32(0x80000000, 0x0220E1BB); // remw x3, x1, x2
@@ -2449,7 +2481,7 @@ fn test_remw_negative() {
 #[test]
 fn test_remw_by_zero() {
     // x % 0 = x
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 42);
     cpu.write_reg(2, 0);
     cpu.bus.write32(0x80000000, 0x0220E1BB); // remw x3, x1, x2
@@ -2460,7 +2492,7 @@ fn test_remw_by_zero() {
 #[test]
 fn test_remw_overflow() {
     // -2^31 % -1 = 0
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x8000_0000); // i32::MIN
     cpu.write_reg(2, (-1_i32) as u32 as u64);
     cpu.bus.write32(0x80000000, 0x0220E1BB); // remw x3, x1, x2
@@ -2472,7 +2504,7 @@ fn test_remw_overflow() {
 
 #[test]
 fn test_remuw_basic() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 20);
     cpu.write_reg(2, 3);
     cpu.bus.write32(0x80000000, 0x0220F1BB); // remuw x3, x1, x2
@@ -2483,7 +2515,7 @@ fn test_remuw_basic() {
 #[test]
 fn test_remuw_large() {
     // 0x80000000 % 3 = 2
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x8000_0000);
     cpu.write_reg(2, 3);
     cpu.bus.write32(0x80000000, 0x0220F1BB); // remuw x3, x1, x2
@@ -2493,7 +2525,7 @@ fn test_remuw_large() {
 
 #[test]
 fn test_remuw_by_zero() {
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 42);
     cpu.write_reg(2, 0);
     cpu.bus.write32(0x80000000, 0x0220F1BB); // remuw x3, x1, x2
@@ -2507,7 +2539,7 @@ fn test_remuw_by_zero() {
 fn test_divuw_sign_extend() {
     // 0xC0000000 / 2 = 0x60000000 (bit 31 = 0, no issue)
     // 0x80000000 / 1 = 0x80000000 (bit 31 = 1, needs sign-extend)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x8000_0000);
     cpu.write_reg(2, 1);
     cpu.bus.write32(0x80000000, 0x0220D1BB); // divuw x3, x1, x2
@@ -2519,7 +2551,7 @@ fn test_divuw_sign_extend() {
 #[test]
 fn test_remuw_sign_extend() {
     // 0x80000001 % 0xFFFFFFFF = 0x80000001 (bit 31 = 1)
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x8000_0001);
     cpu.write_reg(2, 0xFFFF_FFFF);
     cpu.bus.write32(0x80000000, 0x0220F1BB); // remuw x3, x1, x2
@@ -2531,7 +2563,7 @@ fn test_remuw_sign_extend() {
 #[test]
 fn test_remw_by_zero_sign_extend() {
     // x % 0 = x, with x having bit 31 set
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x8000_0000); // -2^31 in 32-bit
     cpu.write_reg(2, 0);
     cpu.bus.write32(0x80000000, 0x0220E1BB); // remw x3, x1, x2
@@ -2543,7 +2575,7 @@ fn test_remw_by_zero_sign_extend() {
 #[test]
 fn test_remuw_by_zero_sign_extend() {
     // x % 0 = x, with x having bit 31 set
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
     cpu.write_reg(1, 0x8000_0000);
     cpu.write_reg(2, 0);
     cpu.bus.write32(0x80000000, 0x0220F1BB); // remuw x3, x1, x2

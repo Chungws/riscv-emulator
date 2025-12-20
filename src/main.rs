@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bytes = fs::read(elf_path)?;
     let elf_file = ElfFile::load(&bytes)?;
 
-    let mut cpu = Cpu::new();
+    let mut cpu = Cpu::new(0);
 
     cpu.load_segments(&elf_file.segments, elf_file.entry);
     cpu.run();
