@@ -1,6 +1,6 @@
 use core::panic;
 
-use crate::{Bus, Csr, csr, debug_log, decoder, devices, elf};
+use crate::{bus, csr, debug_log, decoder, devices, elf};
 
 const OP_IMM: u32 = 0x13;
 const OP_IMM_32: u32 = 0x1B;
@@ -24,16 +24,16 @@ pub enum PrivilegeMode {
 
 pub struct Cpu {
     pub regs: [u64; 32],
-    pub csr: Csr,
+    pub csr: csr::Csr,
     pub pc: u64,
     pub mode: PrivilegeMode,
-    pub bus: Bus,
+    pub bus: bus::Bus,
     pub halted: bool,
 }
 
 impl Cpu {
     pub fn new() -> Self {
-        let mut csr = Csr::new();
+        let mut csr = csr::Csr::new();
         // misa: RV64I + S + U 지원
         // 비트 63-62: MXL=2 (64비트)
         // 비트 8: I (기본 정수)
@@ -49,7 +49,7 @@ impl Cpu {
             csr: csr,
             pc: devices::memory::DRAM_BASE,
             mode: PrivilegeMode::Machine,
-            bus: Bus::new(),
+            bus: bus::Bus::new(),
             halted: false,
         }
     }
