@@ -2,6 +2,8 @@
 
 RISC-V A Extension (Atomic) 구현 가이드.
 
+**설계 방향**: 멀티코어 확장 가능한 구조
+
 ---
 
 ## 1. A Extension 개요
@@ -34,9 +36,66 @@ A Extension은 RISC-V의 원자적 메모리 연산 확장.
 
 ---
 
-## 2. LR/SC 명령어
+## 2. 멀티코어 확장 가능 아키텍처
 
-### 2.1 Load-Reserved (LR)
+### 2.1 설계 원칙
+
+싱글코어로 시작하되, 멀티코어 확장이 용이한 구조로 설계.
+
+**핵심**: 예약(reservation)을 CPU가 아닌 Bus에서 관리
+
+### 2.2 구조 변경
+
+```
+현재 구조:
+┌─────┐     ┌─────┐
+│ CPU │────▶│ Bus │────▶ Memory
+└─────┘     └─────┘
+
+멀티코어 확장 가능 구조:
+┌─────┐     ┌─────────────────────┐
+│ CPU │────▶│        Bus          │
+│ id=0│     │  ┌───────────────┐  │
+└─────┘     │  │ Reservations  │  │────▶ Memory
+            │  │ {hart_id: addr}│  │
+            │  └───────────────┘  │
+            └─────────────────────┘
+
+멀티코어 확장 시:
+┌─────┐
+│ CPU │──┐  ┌─────────────────────┐
+│ id=0│  │  │        Bus          │
+└─────┘  ├─▶│  ┌───────────────┐  │
+┌─────┐  │  │  │ Reservations  │  │────▶ Memory
+│ CPU │──┘  │  │ {0: addr_a,   │  │
+│ id=1│     │  │  1: addr_b}   │  │
+└─────┘     │  └───────────────┘  │
+            └─────────────────────┘
+```
+
+### 2.3 예약 무효화 (핵심!)
+
+```
+Hart 0: LR.W a0, (0x1000)     # reservations[0] = 0x1000
+Hart 1: SW zero, (0x1000)     # 쓰기 시 0x1000 예약한 hart들 무효화!
+Hart 0: SC.W a1, a0, (0x1000) # 예약 없음 → 실패 (a1 = 1)
+```
+
+**규칙**: 어떤 hart든 메모리에 쓸 때, 해당 주소를 예약한 모든 hart의 예약 무효화
+
+### 2.4 왜 이 설계인가?
+
+| 싱글코어 전용 | 멀티코어 확장 가능 |
+|--------------|-------------------|
+| CPU 내부에 예약 저장 | Bus에 예약 저장 |
+| 멀티코어 시 대규모 리팩토링 | 새 CPU 추가만 하면 됨 |
+| 실제 HW 동작과 다름 | 실제 HW 동작과 유사 |
+
+---
+
+## 3. LR/SC 명령어
+
+### 3.1 Load-Reserved (LR)
 
 | 명령어 | funct5 | 설명 |
 |--------|--------|------|
@@ -45,9 +104,9 @@ A Extension은 RISC-V의 원자적 메모리 연산 확장.
 
 **동작**:
 1. 메모리에서 값 읽기
-2. 해당 주소를 "예약" 상태로 마킹
+2. Bus에 예약 등록: `reservations[hart_id] = addr`
 
-### 2.2 Store-Conditional (SC)
+### 3.2 Store-Conditional (SC)
 
 | 명령어 | funct5 | 설명 |
 |--------|--------|------|
@@ -55,38 +114,22 @@ A Extension은 RISC-V의 원자적 메모리 연산 확장.
 | SC.D | 0x03 | 64비트 조건부 store |
 
 **동작**:
-1. 예약이 유효하면: store 수행, rd = 0 (성공)
-2. 예약이 무효하면: store 안 함, rd = 1 (실패)
+1. Bus에서 예약 확인: `reservations[hart_id] == addr?`
+2. 예약 유효: store 수행, rd = 0 (성공)
+3. 예약 무효: store 안 함, rd = 1 (실패)
+4. 예약 클리어: `reservations.remove(hart_id)`
 
-**예약 무효화 조건**:
+### 3.3 예약 무효화 조건
+
 - 다른 hart가 해당 주소에 write
 - SC 명령어 실행 (성공/실패 무관)
 - 인터럽트/예외 발생 (선택적)
 
-### 2.3 싱글코어 구현
-
-싱글코어에서는 간단하게 구현 가능:
-```
-reservation_addr: Option<u64>
-
-LR:
-  reservation_addr = Some(addr)
-  return memory[addr]
-
-SC:
-  if reservation_addr == Some(addr):
-    memory[addr] = value
-    reservation_addr = None
-    return 0  // 성공
-  else:
-    return 1  // 실패
-```
-
 ---
 
-## 3. AMO 명령어
+## 4. AMO 명령어
 
-### 3.1 AMO 명령어 목록
+### 4.1 AMO 명령어 목록
 
 | 명령어 | funct5 | 연산 |
 |--------|--------|------|
@@ -100,16 +143,17 @@ SC:
 | AMOMINU | 0x18 | min (unsigned) |
 | AMOMAXU | 0x1C | max (unsigned) |
 
-### 3.2 AMO 동작
+### 4.2 AMO 동작
 
 모든 AMO 명령어는:
 1. 메모리에서 값 읽기 (rd에 저장)
 2. rs2와 연산 수행
 3. 결과를 메모리에 쓰기
+4. **해당 주소의 예약 무효화** (쓰기이므로)
 
 **원자적**: 1-3이 다른 hart에게 분리되어 보이지 않음
 
-### 3.3 W vs D suffix
+### 4.3 W vs D suffix
 
 | suffix | funct3 | 비트 폭 |
 |--------|--------|---------|
@@ -118,13 +162,34 @@ SC:
 
 ---
 
-## 4. 구현 단계
+## 5. 구현 단계
+
+### Step 0: 아키텍처 준비
+
+**목표**: 멀티코어 확장 가능한 예약 시스템 구축
+
+- [ ] CPU에 `hart_id: u64` 추가
+- [ ] Bus에 예약 테이블 추가
+  ```
+  reservations: HashMap<u64, u64>  // hart_id -> reserved_addr
+  ```
+- [ ] Bus에 예약 API 추가
+  - `reserve(hart_id, addr)`: 예약 등록
+  - `check_reservation(hart_id, addr) -> bool`: 예약 확인
+  - `clear_reservation(hart_id)`: 예약 클리어
+  - `invalidate_reservations(addr)`: 해당 주소 예약 무효화
+- [ ] 메모리 쓰기 시 `invalidate_reservations(addr)` 호출
+
+**검증**: 기존 테스트 통과 확인
+
+---
 
 ### Step 1: LR/SC 구현
 
-**목표**: 기본 예약 메커니즘 구현
+**목표**: 예약 기반 원자적 읽기-수정-쓰기
 
-- [ ] CPU에 `reservation_addr: Option<u64>` 추가
+- [ ] AMO opcode (0x2F) 핸들러 추가
+- [ ] decoder에 funct5 추가
 - [ ] LR.W: 32비트 load + 예약
 - [ ] LR.D: 64비트 load + 예약
 - [ ] SC.W: 32비트 조건부 store
@@ -189,21 +254,63 @@ while(__sync_lock_test_and_set(&lk->locked, 1) != 0)
 
 ---
 
-## 5. 참고 자료
+## 6. Bus 예약 API 상세
 
-- RISC-V Specification Chapter 8: "A" Standard Extension
-- https://riscv.org/specifications/
+### 6.1 데이터 구조
+
+```
+Bus {
+    memory: Memory,
+    uart: Uart,
+    clint: Clint,
+    reservations: HashMap<u64, u64>,  // hart_id -> addr
+}
+```
+
+### 6.2 API
+
+```
+reserve(hart_id: u64, addr: u64)
+  - reservations.insert(hart_id, addr)
+  - 기존 예약 덮어쓰기 (hart당 1개만 유지)
+
+check_reservation(hart_id: u64, addr: u64) -> bool
+  - reservations.get(hart_id) == Some(addr)
+
+clear_reservation(hart_id: u64)
+  - reservations.remove(hart_id)
+
+invalidate_reservations(addr: u64)
+  - reservations에서 value == addr인 모든 항목 제거
+  - 여러 hart가 같은 주소 예약했을 수 있음
+```
+
+### 6.3 메모리 쓰기 통합
+
+```
+write8/16/32/64(addr, value) {
+    self.invalidate_reservations(addr);  // 핵심!
+    // 기존 쓰기 로직...
+}
+```
 
 ---
 
-## 6. 테스트 케이스
+## 7. 테스트 케이스
 
-### LR/SC
+### LR/SC 기본
 ```
 LR.W a0, (a1)      # a0 = mem[a1], reserve a1
 ADDI a0, a0, 1     # a0++
 SC.W a2, a0, (a1)  # if reserved: mem[a1] = a0, a2 = 0
                    # else: a2 = 1
+```
+
+### LR/SC 실패 케이스
+```
+LR.W a0, (a1)      # 예약
+SW zero, (a1)      # 같은 주소에 쓰기 → 예약 무효화
+SC.W a2, a0, (a1)  # 실패 (a2 = 1)
 ```
 
 ### AMOSWAP (spinlock)
@@ -221,11 +328,19 @@ amoadd.w t1, t0, (a0)  # t1 = old, mem[a0] = old + 5
 
 ---
 
-## 7. 구현 우선순위
+## 8. 참고 자료
+
+- RISC-V Specification Chapter 8: "A" Standard Extension
+- https://riscv.org/specifications/
+
+---
+
+## 9. 구현 우선순위
 
 xv6 실행을 위한 최소 구현:
-1. **AMOSWAP.W** (필수) - spinlock
-2. **LR.W / SC.W** (필수) - CAS 연산
-3. 나머지는 필요시 추가
+1. **Step 0**: 예약 시스템 (필수)
+2. **AMOSWAP.W** (필수) - spinlock
+3. **LR.W / SC.W** (필수) - CAS 연산
+4. 나머지는 필요시 추가
 
-싱글코어에서는 aq/rl 비트 무시 가능 (메모리 순서 보장 불필요).
+**aq/rl 비트**: 싱글코어에서는 무시 가능. 멀티코어 시 메모리 배리어로 구현.
