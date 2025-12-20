@@ -1,4 +1,5 @@
 use super::*;
+use crate::csr;
 
 #[test]
 fn test_cpu_init() {
