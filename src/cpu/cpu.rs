@@ -910,6 +910,18 @@ impl Cpu {
         let funct5 = decoder::funct5(inst);
 
         match (funct3, funct5) {
+            (0x2, 0x01) => {
+                let val = self.bus.read32(addr) as i32 as i64 as u64;
+                debug_log!(
+                    "AMOSWAP.W rd={}, addr={:#x}, val={:#x}, rs2_val={:#x}",
+                    rd,
+                    addr,
+                    val,
+                    rs2_val
+                );
+                self.write_reg(rd, val);
+                self.bus.write32(addr, rs2_val as u32);
+            }
             (0x2, 0x02) => {
                 let val = self.bus.read32(addr) as i32 as i64 as u64;
                 debug_log!("LR.W rd={}, addr={:#x}, val={:#x}", rd, addr, val);
@@ -925,6 +937,18 @@ impl Cpu {
                     self.write_reg(rd, 1);
                 }
                 self.bus.clear_reservation(self.hart_id);
+            }
+            (0x3, 0x01) => {
+                let val = self.bus.read64(addr);
+                debug_log!(
+                    "AMOSWAP.D rd={}, addr={:#x}, val={:#x}, rs2_val={:#x}",
+                    rd,
+                    addr,
+                    val,
+                    rs2_val
+                );
+                self.write_reg(rd, val);
+                self.bus.write64(addr, rs2_val);
             }
             (0x3, 0x02) => {
                 let val = self.bus.read64(addr);

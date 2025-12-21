@@ -2737,3 +2737,84 @@ fn test_sc_clears_reservation() {
     cpu.step();
     assert_eq!(cpu.read_reg(3), 1); // 실패
 }
+
+// ==================== A Extension: AMOSWAP ====================
+
+#[test]
+fn test_amoswap_w_basic() {
+    // AMOSWAP.W x3, x2, (x1)
+    let mut cpu = Cpu::new(0);
+    let addr = 0x80001000;
+    cpu.write_reg(1, addr);
+    cpu.write_reg(2, 0x12345678);
+    cpu.bus.write32(addr, 0xDEADBEEF);
+    cpu.bus.write32(0x80000000, 0x0820A1AF); // AMOSWAP.W x3, x2, (x1)
+    cpu.step();
+    // rd = old value (sign-extended)
+    assert_eq!(cpu.read_reg(3), 0xFFFFFFFF_DEADBEEF);
+    // mem = new value
+    assert_eq!(cpu.bus.read32(addr), 0x12345678);
+}
+
+#[test]
+fn test_amoswap_w_sign_extend() {
+    // 양수 값도 sign-extend 확인
+    let mut cpu = Cpu::new(0);
+    let addr = 0x80001000;
+    cpu.write_reg(1, addr);
+    cpu.write_reg(2, 0xAAAAAAAA);
+    cpu.bus.write32(addr, 0x7FFFFFFF); // 양수
+    cpu.bus.write32(0x80000000, 0x0820A1AF);
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0x7FFFFFFF); // 양수는 상위 비트 0
+    assert_eq!(cpu.bus.read32(addr), 0xAAAAAAAA);
+}
+
+#[test]
+fn test_amoswap_d_basic() {
+    // AMOSWAP.D x3, x2, (x1)
+    let mut cpu = Cpu::new(0);
+    let addr = 0x80001000;
+    cpu.write_reg(1, addr);
+    cpu.write_reg(2, 0xFEDCBA9876543210);
+    cpu.bus.write64(addr, 0x123456789ABCDEF0);
+    cpu.bus.write32(0x80000000, 0x0820B1AF); // AMOSWAP.D x3, x2, (x1)
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0x123456789ABCDEF0);
+    assert_eq!(cpu.bus.read64(addr), 0xFEDCBA9876543210);
+}
+
+#[test]
+fn test_amoswap_w_spinlock_pattern() {
+    // spinlock acquire 패턴: amoswap.w t1, t0, (a0) where t0=1
+    let mut cpu = Cpu::new(0);
+    let lock_addr = 0x80001000;
+    cpu.write_reg(1, lock_addr); // a0 = lock address
+    cpu.write_reg(2, 1);          // t0 = 1 (lock value)
+    cpu.bus.write32(lock_addr, 0); // lock = 0 (unlocked)
+
+    // AMOSWAP.W x3, x2, (x1)
+    cpu.bus.write32(0x80000000, 0x0820A1AF);
+    cpu.step();
+
+    // t1 = old value (0 = was unlocked)
+    assert_eq!(cpu.read_reg(3), 0);
+    // lock = 1 (now locked)
+    assert_eq!(cpu.bus.read32(lock_addr), 1);
+}
+
+#[test]
+fn test_amoswap_invalidates_reservation() {
+    // AMOSWAP은 메모리에 쓰기이므로 예약 무효화
+    let mut cpu = Cpu::new(0);
+    let addr = 0x80001000;
+    cpu.write_reg(1, addr);
+    cpu.write_reg(2, 42);
+    cpu.bus.reserve(0, addr);
+
+    cpu.bus.write32(0x80000000, 0x0820A1AF); // AMOSWAP.W
+    cpu.step();
+
+    // 예약이 무효화되어야 함
+    assert!(!cpu.bus.check_reservation(0, addr));
+}
