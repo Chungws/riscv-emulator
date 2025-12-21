@@ -184,18 +184,18 @@ Hart 0: SC.W a1, a0, (0x1000) # 예약 없음 → 실패 (a1 = 1)
 
 ---
 
-### Step 1: LR/SC 구현
+### Step 1: LR/SC 구현 ✅
 
 **목표**: 예약 기반 원자적 읽기-수정-쓰기
 
-- [ ] AMO opcode (0x2F) 핸들러 추가
-- [ ] decoder에 funct5 추가
-- [ ] LR.W: 32비트 load + 예약
-- [ ] LR.D: 64비트 load + 예약
-- [ ] SC.W: 32비트 조건부 store
-- [ ] SC.D: 64비트 조건부 store
+- [x] AMO opcode (0x2F) 핸들러 추가
+- [x] decoder에 funct5 추가
+- [x] LR.W: 32비트 load + 예약
+- [x] LR.D: 64비트 load + 예약
+- [x] SC.W: 32비트 조건부 store
+- [x] SC.D: 64비트 조건부 store
 
-**검증**: LR/SC 테스트
+**검증**: LR/SC 테스트 ✅
 
 ---
 
