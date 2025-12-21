@@ -59,6 +59,14 @@ pub fn csr_addr(inst: u32) -> u16 {
     ((inst >> 20) & 0xFFF) as u16
 }
 
+pub fn fence_pred(inst: u32) -> u32 {
+    (inst >> 24) & 0xF
+}
+
+pub fn fence_succ(inst: u32) -> u32 {
+    (inst >> 20) & 0xF
+}
+
 pub fn funct5(inst: u32) -> u32 {
     (inst >> 27) & 0x1F
 }

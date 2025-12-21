@@ -14,6 +14,7 @@ const JALR: u32 = 0x67;
 const LUI: u32 = 0x37;
 const AUIPC: u32 = 0x17;
 const SYSTEM: u32 = 0x73;
+const MISC_MEM: u32 = 0x0F;
 const AMO: u32 = 0x2F;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -169,9 +170,8 @@ impl Cpu {
                     return; // trap 시 PC 증가 안함
                 }
             }
-            AMO => {
-                self.execute_amo(inst);
-            }
+            MISC_MEM => self.execute_misc_mem(inst),
+            AMO => self.execute_amo(inst),
             _ => panic!("Not Supported Opcode: {:#x}", op),
         }
         self.pc += 4;
@@ -897,6 +897,40 @@ impl Cpu {
             _ => panic!("Unknown SYSTEM csr_addr: {:#x}", csr_addr),
         };
         taken
+    }
+
+    fn execute_misc_mem(&mut self, inst: u32) {
+        debug_log!("MISC_MEM");
+        let funct3 = decoder::funct3(inst);
+        let rd = decoder::rd(inst);
+        let rs1 = decoder::rs1(inst);
+        let rs1_val = self.read_reg(rs1);
+        let pred = decoder::fence_pred(inst);
+        let succ = decoder::fence_succ(inst);
+
+        match funct3 {
+            0x0 => {
+                debug_log!(
+                    "FENCE rd={}, rs1={}, rs1_val={}, pred={}, succ={}",
+                    rd,
+                    rs1,
+                    rs1_val,
+                    pred,
+                    succ
+                );
+            }
+            0x1 => {
+                debug_log!(
+                    "FENCE rd={}, rs1={}, rs1_val={}, pred={}, succ={}",
+                    rd,
+                    rs1,
+                    rs1_val,
+                    pred,
+                    succ
+                );
+            }
+            _ => panic!("Unknown MISC_MEM funct3: {:#x}", funct3),
+        }
     }
 
     fn execute_amo(&mut self, inst: u32) {
