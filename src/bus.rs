@@ -3,11 +3,18 @@ use std::collections::HashMap;
 use crate::devices;
 use crate::devices::stdioterminal::StdioTerminal;
 
+pub struct WriteBufferEntry {
+    pub addr: u64,
+    pub value: u64,
+    pub size: u8,
+}
+
 pub struct Bus {
     clint: devices::Clint,
     memory: devices::Memory,
     uart: devices::Uart,
     reservations: HashMap<u64, u64>,
+    write_buffers: HashMap<u64, Vec<WriteBufferEntry>>,
 }
 
 impl Bus {
@@ -18,6 +25,7 @@ impl Bus {
             memory: devices::Memory::new(),
             uart: devices::Uart::new(Box::new(terminal)),
             reservations: HashMap::new(),
+            write_buffers: HashMap::new(),
         }
     }
 
@@ -132,6 +140,10 @@ impl Bus {
 
     pub fn invalidate_reservations(&mut self, addr: u64) {
         self.reservations.retain(|_key, value| *value != addr);
+    }
+
+    pub fn fence(&mut self, hart_id: u64, pred: u32, succ: u32) {
+        let _ = (hart_id, pred, succ);
     }
 
     pub fn tick(&mut self) {

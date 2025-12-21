@@ -2,7 +2,7 @@
 
 RISC-V FENCE 명령어 구현 가이드.
 
-**설계 방향**: 멀티코어 확장 가능한 구조
+**설계 방향**: 멀티코어 기반 구조
 
 ---
 
@@ -84,15 +84,9 @@ data = 42;      // (1)
 
 ---
 
-## 3. 멀티코어 확장 가능 아키텍처
+## 3. 멀티코어 아키텍처
 
-### 3.1 설계 원칙
-
-A Extension과 동일하게, 싱글코어로 시작하되 멀티코어 확장이 용이한 구조로 설계.
-
-**핵심**: Write Buffer를 Bus에서 관리
-
-### 3.2 Write Buffer란?
+### 3.1 Write Buffer
 
 실제 CPU는 쓰기 성능 향상을 위해 Write Buffer 사용:
 
@@ -106,16 +100,9 @@ A Extension과 동일하게, 싱글코어로 시작하되 멀티코어 확장이
 - CPU가 쓰기 명령 실행 → Write Buffer에 저장 → 나중에 메모리에 반영
 - 다른 코어는 Write Buffer 내용을 못 봄 → 순서 문제 발생
 
-### 3.3 멀티코어 구조
+### 3.2 Bus 기반 Write Buffer 관리
 
 ```
-싱글코어 (현재):
-┌─────┐     ┌─────────────────────┐
-│ CPU │────▶│        Bus          │
-│ id=0│     │  write_buffers: {}  │────▶ Memory
-└─────┘     └─────────────────────┘
-
-멀티코어 확장 시:
 ┌─────┐
 │ CPU │──┐  ┌─────────────────────────────┐
 │ id=0│  │  │            Bus              │
@@ -126,15 +113,8 @@ A Extension과 동일하게, 싱글코어로 시작하되 멀티코어 확장이
 └─────┘     └─────────────────────────────┘
 ```
 
-### 3.4 FENCE 동작
+### 3.3 FENCE 동작
 
-```
-FENCE W, R 실행 시:
-1. 해당 hart의 Write Buffer를 Memory에 flush
-2. 다른 hart들이 변경 내용을 볼 수 있게 됨
-```
-
-**예시**:
 ```
 Hart 0:                         Hart 1:
 store data, 42
@@ -154,55 +134,6 @@ FENCE W, W
 
 ## 4. 구현 단계
 
-### Step 0: 아키텍처 준비 (멀티코어 확장용)
-
-**목표**: Write Buffer 인프라 구축
-
-싱글코어에서는 즉시 메모리에 쓰므로 Write Buffer가 비어있음.
-멀티코어 확장 시 실제 버퍼링 로직 추가.
-
-- [ ] Bus에 Write Buffer 타입 정의
-- [ ] Bus에 `fence()` API 추가 (현재는 NOP)
-
-```rust
-// bus.rs
-use std::collections::HashMap;
-
-// Write Buffer entry
-pub struct WriteBufferEntry {
-    pub addr: u64,
-    pub value: u64,
-    pub size: u8,  // 1, 2, 4, 8 bytes
-}
-
-pub struct Bus {
-    // 기존 필드들...
-    reservations: HashMap<u64, u64>,
-
-    // 멀티코어용 Write Buffer (현재는 사용 안 함)
-    write_buffers: HashMap<u64, Vec<WriteBufferEntry>>,
-}
-
-impl Bus {
-    // FENCE 처리
-    pub fn fence(&mut self, hart_id: u64, pred: u32, succ: u32) {
-        // 싱글코어: 즉시 메모리 반영이므로 NOP
-        // 멀티코어: write_buffers[hart_id] flush
-
-        let _ = (hart_id, pred, succ);  // 현재는 사용 안 함
-
-        // TODO: 멀티코어 시 구현
-        // if pred & FENCE_W != 0 {
-        //     self.flush_write_buffer(hart_id);
-        // }
-    }
-}
-```
-
-**검증**: 기존 테스트 통과 확인
-
----
-
 ### Step 1: Decoder 확장
 
 - [ ] `fence_pred(inst)` 함수 추가
@@ -221,12 +152,74 @@ pub fn fence_succ(inst: u32) -> u32 {
 
 ---
 
-### Step 2: MISC_MEM 핸들러 추가
+### Step 2: Bus에 Write Buffer 추가
+
+- [ ] `WriteBufferEntry` 구조체 추가
+- [ ] Bus에 `write_buffers: HashMap<u64, Vec<WriteBufferEntry>>` 추가
+- [ ] `fence()` API 추가
+- [ ] `flush_write_buffer()` API 추가
+
+```rust
+// bus.rs
+use std::collections::HashMap;
+
+pub struct WriteBufferEntry {
+    pub addr: u64,
+    pub value: u64,
+    pub size: u8,  // 1, 2, 4, 8 bytes
+}
+
+pub struct Bus {
+    // 기존 필드들...
+    clint: devices::Clint,
+    memory: devices::Memory,
+    uart: devices::Uart,
+    reservations: HashMap<u64, u64>,
+    write_buffers: HashMap<u64, Vec<WriteBufferEntry>>,
+}
+
+impl Bus {
+    pub fn new() -> Self {
+        Self {
+            // 기존...
+            write_buffers: HashMap::new(),
+        }
+    }
+
+    pub fn fence(&mut self, hart_id: u64, pred: u32, _succ: u32) {
+        const FENCE_W: u32 = 0b0001;
+
+        // pred에 W가 있으면 Write Buffer flush
+        if pred & FENCE_W != 0 {
+            self.flush_write_buffer(hart_id);
+        }
+    }
+
+    pub fn flush_write_buffer(&mut self, hart_id: u64) {
+        if let Some(buffer) = self.write_buffers.remove(&hart_id) {
+            for entry in buffer {
+                match entry.size {
+                    1 => self.write8(entry.addr, entry.value as u8),
+                    2 => self.write16(entry.addr, entry.value as u16),
+                    4 => self.write32(entry.addr, entry.value as u32),
+                    8 => self.write64(entry.addr, entry.value),
+                    _ => unreachable!(),
+                }
+            }
+        }
+    }
+}
+```
+
+**참고**: 현재 싱글코어에서는 write_buffers가 항상 비어있으므로 flush해도 아무 일 없음.
+
+---
+
+### Step 3: CPU 핸들러 추가
 
 - [ ] `const MISC_MEM: u32 = 0x0F;` 추가
 - [ ] `step()`에 MISC_MEM 핸들러 추가
-- [ ] FENCE (funct3=0x0) 처리
-- [ ] FENCE.I (funct3=0x1) 처리
+- [ ] `execute_misc_mem()` 함수 구현
 
 ```rust
 // cpu.rs
@@ -260,22 +253,25 @@ fn execute_misc_mem(&mut self, inst: u32) {
 
 ---
 
-### Step 3: 테스트
+### Step 4: 테스트
 
-- [ ] FENCE 기본 테스트 (NOP으로 동작 확인)
+- [ ] FENCE 기본 테스트 (NOP 동작 확인)
 - [ ] FENCE.I 테스트
 - [ ] xv6 테스트
 
 ---
 
-## 5. 멀티코어 확장 시 추가 구현
+## 5. 멀티코어 확장 시 추가 작업
 
-### 5.1 Write Buffer 활성화
+현재 구현은 write를 즉시 메모리에 반영하므로 write_buffers가 항상 비어있음.
+
+멀티코어로 확장 시:
+
+### 5.1 Buffered Write 추가
 
 ```rust
 impl Bus {
     pub fn write32_buffered(&mut self, hart_id: u64, addr: u64, value: u32) {
-        // Write Buffer에 추가
         self.write_buffers
             .entry(hart_id)
             .or_insert_with(Vec::new)
@@ -285,37 +281,16 @@ impl Bus {
                 size: 4,
             });
     }
-
-    pub fn flush_write_buffer(&mut self, hart_id: u64) {
-        if let Some(buffer) = self.write_buffers.remove(&hart_id) {
-            for entry in buffer {
-                match entry.size {
-                    1 => self.write8_direct(entry.addr, entry.value as u8),
-                    2 => self.write16_direct(entry.addr, entry.value as u16),
-                    4 => self.write32_direct(entry.addr, entry.value as u32),
-                    8 => self.write64_direct(entry.addr, entry.value),
-                    _ => unreachable!(),
-                }
-            }
-        }
-    }
 }
 ```
 
-### 5.2 FENCE 구현 완성
+### 5.2 CPU에서 buffered write 사용
 
 ```rust
-pub fn fence(&mut self, hart_id: u64, pred: u32, succ: u32) {
-    const FENCE_W: u32 = 0b0001;
-
-    // pred에 W가 있으면 Write Buffer flush
-    if pred & FENCE_W != 0 {
-        self.flush_write_buffer(hart_id);
-    }
-
-    // succ에 R이 있으면 다른 hart의 Write Buffer도 flush 필요
-    // (실제 HW에서는 cache invalidation)
-}
+// 멀티코어 시 store 명령어에서
+self.bus.write32_buffered(self.hart_id, addr, value);
+// 대신
+// self.bus.write32(addr, value);
 ```
 
 ---
@@ -331,8 +306,6 @@ void release(struct spinlock *lk) {
 }
 ```
 
-FENCE가 없으면 `lk->locked = 0`이 critical section 내 쓰기보다 먼저 보일 수 있음.
-
 ### 6.2 spinlock acquire
 
 ```c
@@ -343,43 +316,33 @@ void acquire(struct spinlock *lk) {
 }
 ```
 
-FENCE가 critical section 진입 전에 이전 코어의 쓰기가 보이도록 보장.
-
 ---
 
-## 7. 싱글코어에서 NOP인 이유
-
-싱글코어 에뮬레이터는:
-1. **순차 실행**: 명령어가 순서대로 실행됨
-2. **즉시 반영**: 메모리 쓰기가 즉시 보임 (Write Buffer 없음)
-3. **캐시 없음**: 캐시 일관성 문제 없음
-
-따라서 메모리 순서가 항상 보장되어 FENCE가 NOP이어도 정확함.
-
----
-
-## 8. 체크리스트
-
-### Step 0: 아키텍처 준비
-- [ ] Bus에 `fence()` API 추가
+## 7. 체크리스트
 
 ### Step 1: Decoder 확장
 - [ ] `fence_pred()` 추가
 - [ ] `fence_succ()` 추가
 
-### Step 2: CPU 핸들러
+### Step 2: Bus 확장
+- [ ] `WriteBufferEntry` 구조체
+- [ ] `write_buffers` 필드
+- [ ] `fence()` API
+- [ ] `flush_write_buffer()` API
+
+### Step 3: CPU 핸들러
 - [ ] MISC_MEM opcode 상수
 - [ ] `execute_misc_mem()` 함수
 - [ ] FENCE 처리
 - [ ] FENCE.I 처리
 
-### Step 3: 테스트
+### Step 4: 테스트
 - [ ] FENCE 테스트
 - [ ] xv6 테스트
 
 ---
 
-## 9. 참고 자료
+## 8. 참고 자료
 
 - RISC-V Specification Chapter 2.7: "Memory Ordering Instructions"
 - RISC-V Specification Chapter 8: "Zifencei" Extension

@@ -918,10 +918,11 @@ impl Cpu {
                     pred,
                     succ
                 );
+                self.bus.fence(self.hart_id, pred, succ);
             }
             0x1 => {
                 debug_log!(
-                    "FENCE rd={}, rs1={}, rs1_val={}, pred={}, succ={}",
+                    "FENCE.I rd={}, rs1={}, rs1_val={}, pred={}, succ={}",
                     rd,
                     rs1,
                     rs1_val,
