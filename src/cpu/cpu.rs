@@ -14,6 +14,7 @@ const JALR: u32 = 0x67;
 const LUI: u32 = 0x37;
 const AUIPC: u32 = 0x17;
 const SYSTEM: u32 = 0x73;
+const AMO: u32 = 0x2F;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PrivilegeMode {
@@ -167,6 +168,9 @@ impl Cpu {
                 if self.execute_system(inst) {
                     return; // trap 시 PC 증가 안함
                 }
+            }
+            AMO => {
+                self.execute_amo(inst);
             }
             _ => panic!("Not Supported Opcode: {:#x}", op),
         }
@@ -893,6 +897,56 @@ impl Cpu {
             _ => panic!("Unknown SYSTEM csr_addr: {:#x}", csr_addr),
         };
         taken
+    }
+
+    fn execute_amo(&mut self, inst: u32) {
+        debug_log!("AMO");
+        let funct3 = decoder::funct3(inst);
+        let rd = decoder::rd(inst);
+        let rs1 = decoder::rs1(inst);
+        let addr = self.read_reg(rs1);
+        let rs2 = decoder::rs2(inst);
+        let rs2_val = self.read_reg(rs2);
+        let funct5 = decoder::funct5(inst);
+
+        match (funct3, funct5) {
+            (0x2, 0x02) => {
+                let val = self.bus.read32(addr) as i32 as i64 as u64;
+                debug_log!("LR.W rd={}, addr={:#x}, val={:#x}", rd, addr, val);
+                self.write_reg(rd, val);
+                self.bus.reserve(self.hart_id, addr);
+            }
+            (0x2, 0x03) => {
+                debug_log!("SC.W rd={}, addr={:#x}, rs2_val={:#x}", rd, addr, rs2_val);
+                if self.bus.check_reservation(self.hart_id, addr) {
+                    self.bus.write32(addr, rs2_val as u32);
+                    self.write_reg(rd, 0);
+                } else {
+                    self.write_reg(rd, 1);
+                }
+                self.bus.clear_reservation(self.hart_id);
+            }
+            (0x3, 0x02) => {
+                let val = self.bus.read64(addr);
+                debug_log!("LR.D rd={}, addr={:#x}, val={:#x}", rd, addr, val);
+                self.write_reg(rd, val);
+                self.bus.reserve(self.hart_id, addr);
+            }
+            (0x3, 0x03) => {
+                debug_log!("SC.D rd={}, addr={:#x}, rs2_val={:#x}", rd, addr, rs2_val);
+                if self.bus.check_reservation(self.hart_id, addr) {
+                    self.bus.write64(addr, rs2_val);
+                    self.write_reg(rd, 0);
+                } else {
+                    self.write_reg(rd, 1);
+                }
+                self.bus.clear_reservation(self.hart_id);
+            }
+            _ => panic!(
+                "Not Implemented AMO funct3: {:#x}, funct5: {:#x}",
+                funct3, funct5
+            ),
+        }
     }
 
     fn check_pending_interrupts(&mut self) -> bool {

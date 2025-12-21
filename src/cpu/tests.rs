@@ -2583,3 +2583,157 @@ fn test_remuw_by_zero_sign_extend() {
     // Should be sign-extended
     assert_eq!(cpu.read_reg(3), 0xFFFF_FFFF_8000_0000);
 }
+
+// ==================== A Extension: LR/SC ====================
+
+#[test]
+fn test_lr_w_basic() {
+    // LR.W x3, (x1)
+    let mut cpu = Cpu::new(0);
+    let addr = 0x80001000;
+    cpu.write_reg(1, addr);
+    cpu.bus.write32(addr, 0xDEADBEEF);
+    cpu.bus.write32(0x80000000, 0x1000A1AF); // LR.W x3, (x1)
+    cpu.step();
+    // 값이 sign-extend 되어야 함
+    assert_eq!(cpu.read_reg(3), 0xFFFFFFFF_DEADBEEF);
+    // 예약 확인
+    assert!(cpu.bus.check_reservation(0, addr));
+}
+
+#[test]
+fn test_lr_d_basic() {
+    // LR.D x3, (x1)
+    let mut cpu = Cpu::new(0);
+    let addr = 0x80001000;
+    cpu.write_reg(1, addr);
+    cpu.bus.write64(addr, 0x123456789ABCDEF0);
+    cpu.bus.write32(0x80000000, 0x1000B1AF); // LR.D x3, (x1)
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0x123456789ABCDEF0);
+    assert!(cpu.bus.check_reservation(0, addr));
+}
+
+#[test]
+fn test_sc_w_success() {
+    // SC.W x3, x2, (x1) - 성공 케이스
+    let mut cpu = Cpu::new(0);
+    let addr = 0x80001000;
+    cpu.write_reg(1, addr);
+    cpu.write_reg(2, 0x12345678);
+    cpu.bus.reserve(0, addr); // 미리 예약
+    cpu.bus.write32(0x80000000, 0x1820A1AF); // SC.W x3, x2, (x1)
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0); // 성공 = 0
+    assert_eq!(cpu.bus.read32(addr), 0x12345678); // 값 저장됨
+}
+
+#[test]
+fn test_sc_w_failure() {
+    // SC.W x3, x2, (x1) - 실패 케이스 (예약 없음)
+    let mut cpu = Cpu::new(0);
+    let addr = 0x80001000;
+    cpu.write_reg(1, addr);
+    cpu.write_reg(2, 0x12345678);
+    cpu.bus.write32(addr, 0xAAAAAAAA);
+    // 예약 없이 SC 시도
+    cpu.bus.write32(0x80000000, 0x1820A1AF); // SC.W x3, x2, (x1)
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 1); // 실패 = 1
+    assert_eq!(cpu.bus.read32(addr), 0xAAAAAAAA); // 값 변경 안됨
+}
+
+#[test]
+fn test_sc_d_success() {
+    // SC.D x3, x2, (x1) - 성공 케이스
+    let mut cpu = Cpu::new(0);
+    let addr = 0x80001000;
+    cpu.write_reg(1, addr);
+    cpu.write_reg(2, 0xFEDCBA9876543210);
+    cpu.bus.reserve(0, addr);
+    cpu.bus.write32(0x80000000, 0x1820B1AF); // SC.D x3, x2, (x1)
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0);
+    assert_eq!(cpu.bus.read64(addr), 0xFEDCBA9876543210);
+}
+
+#[test]
+fn test_sc_d_failure() {
+    // SC.D x3, x2, (x1) - 실패 케이스
+    let mut cpu = Cpu::new(0);
+    let addr = 0x80001000;
+    cpu.write_reg(1, addr);
+    cpu.write_reg(2, 0xFEDCBA9876543210);
+    cpu.bus.write64(addr, 0x1111111111111111);
+    cpu.bus.write32(0x80000000, 0x1820B1AF); // SC.D x3, x2, (x1)
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 1);
+    assert_eq!(cpu.bus.read64(addr), 0x1111111111111111);
+}
+
+#[test]
+fn test_lr_sc_sequence() {
+    // LR.W -> SC.W 전체 시퀀스
+    let mut cpu = Cpu::new(0);
+    let addr = 0x80001000;
+    cpu.write_reg(1, addr);
+    cpu.bus.write32(addr, 100);
+
+    // LR.W x3, (x1)
+    cpu.bus.write32(0x80000000, 0x1000A1AF);
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 100);
+
+    // ADDI x2, x3, 1 (x2 = 101)
+    cpu.write_reg(2, 101);
+
+    // SC.W x4, x2, (x1)
+    cpu.bus.write32(0x80000004, 0x1820A22F); // SC.W x4, x2, (x1)
+    cpu.step();
+    assert_eq!(cpu.read_reg(4), 0); // 성공
+    assert_eq!(cpu.bus.read32(addr), 101);
+}
+
+#[test]
+fn test_lr_sc_interrupted_by_write() {
+    // LR 후 다른 write로 인해 SC 실패
+    let mut cpu = Cpu::new(0);
+    let addr = 0x80001000;
+    cpu.write_reg(1, addr);
+    cpu.bus.write32(addr, 100);
+
+    // LR.W x3, (x1)
+    cpu.bus.write32(0x80000000, 0x1000A1AF);
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 100);
+
+    // 중간에 다른 write (예약 무효화)
+    cpu.bus.write32(addr, 200);
+
+    // SC.W x4, x2, (x1) - 실패해야 함
+    cpu.write_reg(2, 101);
+    cpu.bus.write32(0x80000004, 0x1820A22F);
+    cpu.step();
+    assert_eq!(cpu.read_reg(4), 1); // 실패
+    assert_eq!(cpu.bus.read32(addr), 200); // 원래 값 유지
+}
+
+#[test]
+fn test_sc_clears_reservation() {
+    // SC 후 예약이 클리어되는지 확인
+    let mut cpu = Cpu::new(0);
+    let addr = 0x80001000;
+    cpu.write_reg(1, addr);
+    cpu.write_reg(2, 42);
+    cpu.bus.reserve(0, addr);
+
+    // SC.W x3, x2, (x1)
+    cpu.bus.write32(0x80000000, 0x1820A1AF);
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0); // 성공
+
+    // 두 번째 SC는 실패해야 함 (예약 클리어됨)
+    cpu.bus.write32(0x80000004, 0x1820A1AF);
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 1); // 실패
+}

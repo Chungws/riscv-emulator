@@ -59,6 +59,10 @@ pub fn csr_addr(inst: u32) -> u16 {
     ((inst >> 20) & 0xFFF) as u16
 }
 
+pub fn funct5(inst: u32) -> u32 {
+    (inst >> 27) & 0x1F
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
