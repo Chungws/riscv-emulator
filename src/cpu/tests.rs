@@ -2818,3 +2818,55 @@ fn test_amoswap_invalidates_reservation() {
     // 예약이 무효화되어야 함
     assert!(!cpu.bus.check_reservation(0, addr));
 }
+
+// ==================== RV64I Large Shift Tests ====================
+
+#[test]
+fn test_srli_shamt_32() {
+    // SRLI x3, x1, 32
+    let mut cpu = Cpu::new(0);
+    cpu.write_reg(1, 0xFFFFFFFF_00000000);
+    cpu.bus.write32(0x80000000, 0x0200D193); // SRLI x3, x1, 32
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0x00000000_FFFFFFFF);
+}
+
+#[test]
+fn test_srli_shamt_63() {
+    // SRLI x3, x1, 63
+    let mut cpu = Cpu::new(0);
+    cpu.write_reg(1, 0x8000000000000000);
+    cpu.bus.write32(0x80000000, 0x03F0D193); // SRLI x3, x1, 63
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 1);
+}
+
+#[test]
+fn test_srai_shamt_32() {
+    // SRAI x3, x1, 32 (음수)
+    let mut cpu = Cpu::new(0);
+    cpu.write_reg(1, 0x80000000_00000000u64); // 음수
+    cpu.bus.write32(0x80000000, 0x4200D193); // SRAI x3, x1, 32
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0xFFFFFFFF_80000000); // sign-extended
+}
+
+#[test]
+fn test_srai_shamt_32_positive() {
+    // SRAI x3, x1, 32 (양수)
+    let mut cpu = Cpu::new(0);
+    cpu.write_reg(1, 0x7FFFFFFF_00000000u64); // 양수
+    cpu.bus.write32(0x80000000, 0x4200D193); // SRAI x3, x1, 32
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0x00000000_7FFFFFFF);
+}
+
+#[test]
+fn test_slli_shamt_32() {
+    // SLLI x3, x1, 32
+    let mut cpu = Cpu::new(0);
+    cpu.write_reg(1, 0x00000000_FFFFFFFF);
+    cpu.bus.write32(0x80000000, 0x02009193); // SLLI x3, x1, 32
+    cpu.step();
+    assert_eq!(cpu.read_reg(3), 0xFFFFFFFF_00000000);
+}

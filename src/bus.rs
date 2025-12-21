@@ -142,8 +142,12 @@ impl Bus {
         self.reservations.retain(|_key, value| *value != addr);
     }
 
-    pub fn fence(&mut self, hart_id: u64, pred: u32, succ: u32) {
-        let _ = (hart_id, pred, succ);
+    pub fn fence(&mut self, hart_id: u64, pred: u32, _succ: u32) {
+        const FENCE_W: u32 = 0b0001;
+
+        if pred & FENCE_W != 0 {
+            self.flush_write_buffer(hart_id);
+        }
     }
 
     pub fn tick(&mut self) {
@@ -168,6 +172,20 @@ impl Bus {
 
     pub fn receive_uart_input(&mut self) {
         self.uart.receive_input();
+    }
+
+    pub fn flush_write_buffer(&mut self, hart_id: u64) {
+        if let Some(buffer) = self.write_buffers.remove(&hart_id) {
+            for entry in buffer {
+                match entry.size {
+                    1 => self.write8(entry.addr, entry.value as u8),
+                    2 => self.write16(entry.addr, entry.value as u16),
+                    4 => self.write32(entry.addr, entry.value as u32),
+                    8 => self.write64(entry.addr, entry.value),
+                    _ => unreachable!(),
+                }
+            }
+        }
     }
 }
 

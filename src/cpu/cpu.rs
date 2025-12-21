@@ -244,9 +244,9 @@ impl Cpu {
                 self.write_reg(rd, rs1_val ^ (imm as u64));
             }
             0x5 => {
-                let funct7 = ((imm as u64) >> 5) & 0x7F;
+                let funct6 = ((imm as u64) >> 6) & 0x3F;
                 let shamt = (imm as u64) & 0x3F;
-                match funct7 {
+                match funct6 {
                     0x00 => {
                         debug_log!(
                             "SRLI rd={}, rs1={}, rs1_val={}, shamt={}",
@@ -257,7 +257,7 @@ impl Cpu {
                         );
                         self.write_reg(rd, rs1_val >> shamt);
                     }
-                    0x20 => {
+                    0x10 => {
                         debug_log!(
                             "SRAI rd={}, rs1={}, rs1_val={}, shamt={}",
                             rd,
@@ -267,7 +267,7 @@ impl Cpu {
                         );
                         self.write_reg(rd, ((rs1_val as i64) >> shamt) as u64);
                     }
-                    _ => panic!("Not Implemented OP_IMM funct7: {:#x}", funct7),
+                    _ => panic!("Not Implemented OP_IMM funct6: {:#x}", funct6),
                 }
             }
             0x6 => {
