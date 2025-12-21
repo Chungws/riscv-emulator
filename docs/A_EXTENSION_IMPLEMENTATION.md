@@ -199,12 +199,12 @@ Hart 0: SC.W a1, a0, (0x1000) # 예약 없음 → 실패 (a1 = 1)
 
 ---
 
-### Step 2: AMOSWAP 구현
+### Step 2: AMOSWAP 구현 ✅
 
 **목표**: 스핀락의 핵심 명령어
 
-- [ ] AMOSWAP.W
-- [ ] AMOSWAP.D
+- [x] AMOSWAP.W
+- [x] AMOSWAP.D
 
 xv6의 `acquire()`:
 ```c
@@ -213,7 +213,7 @@ while(__sync_lock_test_and_set(&lk->locked, 1) != 0)
 ```
 이것이 `amoswap.w` 명령어로 컴파일됨.
 
-**검증**: AMOSWAP 테스트
+**검증**: AMOSWAP 테스트 ✅
 
 ---
 
