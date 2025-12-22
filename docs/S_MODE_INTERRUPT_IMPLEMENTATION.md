@@ -369,11 +369,44 @@ SRET이 이미 구현되어 있다면 확인, 없다면 추가:
 
 ---
 
-### Step 6: 테스트
+### Step 6: WFI (Wait For Interrupt) 명령어
+
+WFI는 인터럽트가 발생할 때까지 CPU를 대기 상태로 만드는 명령어:
+
+```
+31      25 24  20 19  15 14  12 11   7 6      0
+[0000100 ][ 00101][ 00000][ 000 ][ 00000][ 1110011]
+  funct7    rs2     rs1   funct3   rd     SYSTEM
+```
+
+- **인코딩**: funct7=0x08, rs2=0x05, funct3=0x0
+- **동작**: 인터럽트 pending될 때까지 대기 (또는 NOP처럼 동작)
+
+```rust
+// SYSTEM 명령어 핸들러에서 (funct3 == 0x0)
+(0x08, 0x05) => {
+    // WFI - Wait For Interrupt
+    debug_log!("WFI");
+    // 간단한 구현: 인터럽트가 pending될 때까지 대기
+    // 싱글코어에서는 NOP처럼 동작해도 됨
+    // (다음 step에서 인터럽트 체크됨)
+    false
+}
+```
+
+**참고**:
+- 실제 하드웨어에서는 전력 절약을 위해 CPU를 sleep 상태로 전환
+- 에뮬레이터에서는 간단히 NOP으로 구현 가능
+- 인터럽트가 pending 상태면 즉시 리턴
+
+---
+
+### Step 7: 테스트
 
 - [ ] CSR 별칭 테스트 (SSTATUS ↔ MSTATUS)
 - [ ] S-mode 타이머 인터럽트 테스트
 - [ ] SRET 테스트
+- [ ] WFI 테스트
 - [ ] xv6 부팅 테스트
 
 ---
@@ -408,9 +441,14 @@ SRET이 이미 구현되어 있다면 확인, 없다면 추가:
 - [ ] SSTATUS 복원
 - [ ] PC = SEPC
 
-### Step 6: 테스트
+### Step 6: WFI
+- [ ] WFI 명령어 추가 (funct7=0x08, rs2=0x05)
+- [ ] NOP처럼 동작 (싱글코어)
+
+### Step 7: 테스트
 - [ ] CSR 별칭 테스트
 - [ ] S-mode 인터럽트 테스트
+- [ ] WFI 테스트
 - [ ] xv6 테스트
 
 ---
